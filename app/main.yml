@@ -1,0 +1,79 @@
+name: CI/CD Pipeline  # Name of the workflow
+
+on:  # Define the triggers for the workflow
+  push:  # Trigger on pushes to specific branches
+    branches:
+      - main  # Run the workflow on changes to the main branch
+  pull_request:  # Trigger on pull requests targeting specific branches
+    branches:
+      - main  # Run the workflow for PRs into the main branch
+
+jobs:  # Define the jobs in the workflow
+
+  # 1. Code Quality Checks Job
+  code-checks:
+    name: Code Quality Checks  # Name of the job
+    runs-on: ubuntu-latest  # The environment in which this job runs (latest Ubuntu OS)
+
+    steps:
+      - name: Checkout Code  # Step to fetch the repository code
+        uses: actions/checkout@v3  # Official GitHub action for checking out the code
+
+      - name: Set up Python  # Step to set up a Python environment
+        uses: actions/setup-python@v4  # Official action for Python setup
+        with:
+          python-version: "3.9"  # Specify the Python version to use
+
+      - name: Install Dependencies  # Step to install the application's dependencies
+        run: |
+          pip install -r requirements.txt  # Install all dependencies listed in requirements.txt
+
+      - name: Run Security Checks  # Step to check for security vulnerabilities
+        run: |
+          bandit -r .  # Run Bandit recursively on the codebase to find common security issues
+
+      - name: Run SonarCloud Analysis  # Step to analyze code quality with SonarCloud
+        uses: sonarsource/sonarcloud-github-action@v2  # Official SonarCloud action
+        with:
+          token: ${{ secrets.SONAR_TOKEN }}  # SonarCloud token stored as a GitHub secret
+          projectKey: rnhlab-org_membershipTracker-py-web  # Key for the SonarCloud project
+          organization: rnhlab-org  # SonarCloud organization name
+
+  # 2. Build and Push to AWS ECR Job
+  build-and-push:
+    name: Build and Push to AWS ECR  # Name of the job
+    needs: code-checks  # Ensure this job runs after the code-checks job
+    runs-on: ubuntu-latest  # The environment in which this job runs
+
+    steps:
+      - name: Checkout Code  # Fetch the repository code again for this job
+        uses: actions/checkout@v3
+
+      - name: Log in to Amazon ECR  # Authenticate with the AWS Elastic Container Registry
+        run: |
+          aws ecr get-login-password --region us-west-1 | docker login --username AWS --password-stdin 798742520104.dkr.ecr.us-west-1.amazonaws.com
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}  # AWS Access Key ID stored as a GitHub secret
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}  # AWS Secret Access Key stored as a GitHub secret
+
+      - name: Build and Tag Docker Image  # Step to build and tag the Docker image
+        run: |
+          docker build -t membershiptracker-py-web:${{ github.sha }} .  # Build the image with a unique tag using the commit SHA
+          docker tag membershiptracker-py-web:${{ github.sha }} 798742520104.dkr.ecr.us-west-1.amazonaws.com/hlab-ecr-repo:latest  # Tag the image as "latest"
+
+      - name: Push Docker Image to ECR  # Step to push the Docker image to the AWS ECR repository
+        run: |
+          docker push 798742520104.dkr.ecr.us-west-1.amazonaws.com/hlab-ecr-repo:latest  # Push the "latest" tag to the repository
+
+  # 3. Deploy to K3s Job
+  deploy:
+    name: Deploy to K3s  # Name of the deployment job
+    needs: build-and-push  # Ensure this job runs after the build-and-push job
+    runs-on: ubuntu-latest  # The environment in which this job runs
+
+    steps:
+      - name: Apply K3s Deployment  # Step to deploy the application to the K3s cluster
+        run: |
+          echo "${{ secrets.K3S_KUBECONFIG }}" | base64 --decode > kubeconfig  # Decode the base64-encoded kubeconfig file
+          export KUBECONFIG=kubeconfig  # Set the kubeconfig environment variable
+          kubectl apply -f k8s-deployment.yaml  # Apply the Kubernetes deployment YAML
