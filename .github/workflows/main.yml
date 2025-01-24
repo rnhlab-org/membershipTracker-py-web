@@ -116,15 +116,13 @@ jobs:
     if: github.event_name == 'push' && (startsWith(github.ref, 'refs/tags/stage') || startsWith(github.ref, 'refs/tags/v'))
     needs: build-validate  # Ensure the container has been validated before pushing
     runs-on: ubuntu-latest
-    env:
-      IMAGE_TAG: ${{ needs.build-validate.outputs.image-tag }}  # Use output from previous job
     steps:
       - name: Extract Version and Set Image Tag
         id: version
         run: |
           if [[ "${GITHUB_REF}" =~ ^refs/tags/v ]]; then
             VERSION=${GITHUB_REF#refs/tags/}
-            IMAGE_TAG="membershiptracker-py-web:${VERSION}"
+           IMAGE_TAG="membershiptracker-py-web:${VERSION}"
           elif [[ "${GITHUB_REF}" =~ ^refs/tags/stage ]]; then
             VERSION=${GITHUB_REF#refs/tags/}
             IMAGE_TAG="membershiptracker-py-web-dev:${VERSION}"
@@ -134,6 +132,8 @@ jobs:
           fi
           echo "VERSION=${VERSION}" >> $GITHUB_ENV
           echo "IMAGE_TAG=${IMAGE_TAG}" >> $GITHUB_ENV
+          echo "Version: $VERSION"
+          echo "Image Tag: $IMAGE_TAG"
 
       # ---DEBUG--- Debug GitHub Ref
       - name: Debug GitHub Ref
