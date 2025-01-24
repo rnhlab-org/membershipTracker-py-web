@@ -15,6 +15,55 @@ on:
 
 jobs:
   # Step 1: Run Code Quality and Security Checks
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.extract.outputs.version }}
+      full_image_tag: ${{ steps.extract.outputs.full_image_tag }}
+      local_image_tag: ${{ steps.extract.outputs.local_image_tag }}
+    steps:
+      # Step 2.2: Extract Version and Set Image Tag
+      - name: Extract Version and Set Image Tag
+        id: extract
+        run: |
+          if [[ "${GITHUB_REF}" =~ ^refs/tags/v ]]; then
+            VERSION=${GITHUB_REF#refs/tags/}
+            FULL_IMAGE_TAG="798742520104.dkr.ecr.us-west-1.amazonaws.com/membershiptracker-py-web:${VERSION}"
+            LOCAL_IMAGE_TAG="membershiptracker-py-web:${VERSION}"
+          elif [[ "${GITHUB_REF}" =~ ^refs/tags/stage ]]; then
+            VERSION=${GITHUB_REF#refs/tags/}
+            FULL_IMAGE_TAG="798742520104.dkr.ecr.us-west-1.amazonaws.com/membershiptracker-py-web-dev:${VERSION}"
+            LOCAL_IMAGE_TAG="membershiptracker-py-web-dev:${VERSION}"
+          else
+            VERSION=latest
+            FULL_IMAGE_TAG="798742520104.dkr.ecr.us-west-1.amazonaws.com/membershiptracker-py-web-dev:latest"
+            LOCAL_IMAGE_TAG="membershiptracker-py-web-dev:latest"
+          fi
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+          echo "FULL_IMAGE_TAG=${FULL_IMAGE_TAG}" >> $GITHUB_ENV
+          echo "LOCAL_IMAGE_TAG=${LOCAL_IMAGE_TAG}" >> $GITHUB_ENV
+          echo "Version: $VERSION"
+          echo "Local Image Tag: $LOCAL_IMAGE_TAG"
+          echo "Full Image Tag: $FULL_IMAGE_TAG"     
+      # -DEBUG- Debug GitHub Ref
+      - name: -DEBUG- GitHub Ref
+        run: |
+          echo "GitHub Ref: ${GITHUB_REF}"  # Log the GitHub reference for debugging
+      # -DEBUG- Debug Version and Tag
+      - name: -DEBUG- Version and Tag
+        run: |
+          echo "Version: $VERSION" # Log the extracted version
+          echo "Local Image Tag: $LOCAL_IMAGE_TAG"
+          echo "Full Image Tag: $FULL_IMAGE_TAG"
+      # Output common job Vars   
+      - name: Send Setup Outputs for other Jobs 
+        id: outputs
+        run: |
+          # Output variable
+          echo "::set-output name=version::${VERSION}"
+          echo "::set-output name=full_image_tag::${FULL_IMAGE_TAG}"
+          echo "::set-output name=local_image_tag::${LOCAL_IMAGE_TAG}"  
+  
   code-checks:
     name: Run Code Quality and Security Checks
     runs-on: ubuntu-latest
@@ -50,174 +99,107 @@ jobs:
   # Step 2: Build and Validate Container
   build-validate:
     name: Build, Validate, and Discard Container
-    needs: code-checks  # Ensure code-checks job completes successfully before running
+    needs: 
+    - setup  # Ensure setup job completes successfully before running
+    - code-checks  # Ensure code-checks job completes successfully before running
     runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.setup.outputs.version }}
+      FULL_IMAGE_TAG: ${{ needs.setup.outputs.full_image_tag }}
+      LOCAL_IMAGE_TAG: ${{ needs.setup.outputs.local_image_tag }}   
     steps:
       # Step 2.1: Checkout the repository
       - name: Checkout Code
         uses: actions/checkout@v3
 
-      # ---DEBUG--- Debug GitHub Ref
-      - name: Debug GitHub Ref
+      # Step 2.2: -DEBUG- Validate Setup Outputs
+      - name: -DEBUG- Validate Setup Outputs
+        id: varsetup
+        if: always() && github.event_name == 'push' && github.ref != 'refs/heads/main' # Always run this step for push events except production
         run: |
-          echo "GitHub Ref: ${GITHUB_REF}"  # Log the GitHub reference for debugging
-
-      # Step 2.2: Extract Version and Set Image Tag
-      - name: Extract Version and Set Image Tag
-        id: version
-        run: |
-          if [[ "${GITHUB_REF}" =~ ^refs/tags/v ]]; then
-            VERSION=${GITHUB_REF#refs/tags/}
-            IMAGE_TAG="membershiptracker-py-web:${VERSION}"
-          elif [[ "${GITHUB_REF}" =~ ^refs/tags/stage ]]; then
-            VERSION=${GITHUB_REF#refs/tags/}
-            IMAGE_TAG="membershiptracker-py-web-dev:${VERSION}"
-          else
-            VERSION=latest
-            IMAGE_TAG="membershiptracker-py-web-dev:latest"
-          fi
-          echo "VERSION=${VERSION}" >> $GITHUB_ENV
-          echo "IMAGE_TAG=${IMAGE_TAG}" >> $GITHUB_ENV
+          echo "Version: $VERSION" # Log the extracted version
+          echo "Local Image Tag: $LOCAL_IMAGE_TAG"
+          echo "Full Image Tag: $FULL_IMAGE_TAG" 
 
         # Step 2.2.1: Manually update Chart appVersion as it does not do it automatically
       - name: Update Chart appVersion
+        id: update-chart
         run: |
           sed -i "s/^appVersion:.*/appVersion: ${VERSION}/" charts/membershipTracker-py-web/Chart.yaml
           cat charts/membershipTracker-py-web/Chart.yaml  # Verify the change in logs
 
         # Step 2.2.2: Update Image Tag in values.yaml
       - name: Update Image Tag in values.yaml
+        id: update-values
         run: |
           sed -i "s/^  tag:.*/  tag: ${VERSION}/" charts/membershipTracker-py-web/values.yaml
           cat charts/membershipTracker-py-web/values.yaml  # Verify the change in logs     
 
-      # !!! DEBUG !!! Debug Version and Tag
-      - name: ---DEBUG--- Version and Tag
-        run: |
-          echo "Version: $VERSION"  # Log the extracted version
-          echo "Image Tag: $IMAGE_TAG"  # Log the image tag
-
       # Step 2.4: Build Docker Container
       - name: Build Container
+        id: buildcontainer
         run: |
-          docker build --build-arg APP_VERSION=$VERSION -t $IMAGE_TAG .  # Build the Docker image with the extracted version
+          docker build --build-arg APP_VERSION=$VERSION -t $LOCAL_IMAGE_TAG .  # Build the Docker image with the extracted version
+
+      # -DEBUG- Verify Docker Image Creation
+      - name: -DEBUG- Verify Docker Image Creation
+        id: debug
+        if: always() && github.event_name == 'push' && github.ref != 'refs/heads/main' # Always run this step for push events except production
+        run: |
+          echo "--- Validate specific container exits ---"
+          docker images $LOCAL_IMAGE_TAG
+          echo "--- Validate all container ---"
+          docker images 
+    
 
       # Step 2.5: Validate Container Locally
       - name: Validate Container
+        id: container-validation
         run: |
-          docker run -d --name temp-container -p 8080:8000 $IMAGE_TAG  # Run the container locally
+          docker run -d --name temp-container -p 8080:8000 $LOCAL_IMAGE_TAG  # Run the container locally
           sleep 5  # Wait for the container to start
           curl -f http://localhost:8080 || (docker logs temp-container && exit 1)  # Check if the web page loads successfully
           docker stop temp-container && docker rm temp-container  # Stop and remove the container after validation
 
   # Step 3: Push Container to AWS ECR
-  # push-container:
-  #   name: Push Container to AWS ECR
-  #   if: github.event_name == 'push' && (startsWith(github.ref, 'refs/tags/stage') || startsWith(github.ref, 'refs/tags/v'))
-  #   needs: build-validate  # Ensure the container has been validated before pushing
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - name: Extract Version and Set Image Tag
-  #       id: version
-  #       run: |
-  #         if [[ "${GITHUB_REF}" =~ ^refs/tags/v ]]; then
-  #           VERSION=${GITHUB_REF#refs/tags/}
-  #           IMAGE_TAG="798742520104.dkr.ecr.us-west-1.amazonaws.com/membershiptracker-py-web:${VERSION}"
-  #         elif [[ "${GITHUB_REF}" =~ ^refs/tags/stage ]]; then
-  #           VERSION=${GITHUB_REF#refs/tags/}
-  #           IMAGE_TAG="798742520104.dkr.ecr.us-west-1.amazonaws.com/membershiptracker-py-web-dev:${VERSION}"
-  #         else
-  #           VERSION=latest
-  #           IMAGE_TAG="798742520104.dkr.ecr.us-west-1.amazonaws.com/membershiptracker-py-web-dev:latest"
-  #         fi
-  #         echo "VERSION=${VERSION}" >> $GITHUB_ENV
-  #         echo "IMAGE_TAG=${IMAGE_TAG}" >> $GITHUB_ENV
-  #         echo "Version: $VERSION"
-  #         echo "Image Tag: $IMAGE_TAG"
-
-  #     # ---DEBUG--- Debug GitHub Ref
-  #     - name: Debug GitHub Ref
-  #       run: |
-  #         echo "GitHub Ref: ${GITHUB_REF}"  # Log the GitHub reference for debugging
-
-  #     # !!! DEBUG !!! : Debug Version and Tag
-  #     - name: ---DEBUG--- Version and Tag
-  #       run: |
-  #         echo "Version: $VERSION"  # Log the extracted version
-  #         echo "Image Tag: $IMAGE_TAG"  # Log the image tag           
-
-  #     # Step 3.1: Log in to Amazon ECR
-  #     - name: Log in to Amazon ECR
-  #       run: |
-  #         aws ecr get-login-password --region us-west-1 | docker login --username AWS --password-stdin 798742520104.dkr.ecr.us-west-1.amazonaws.com
-  #       env:
-  #         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}  # AWS access key
-  #         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}  # AWS secret key
-
-  #     # Step 3.2: Push Docker Image to ECR
-  #     - name: Push Docker Image
-  #       run: |
-  #         docker push $IMAGE_TAG  # Push the built image to AWS ECR
   push-container:
     name: Push Container to AWS ECR
     if: github.event_name == 'push' && (startsWith(github.ref, 'refs/tags/stage') || startsWith(github.ref, 'refs/tags/v'))
-    needs: build-validate
+    needs: 
+      - setup  # Ensure setup job completes successfully before running
+      - build-validate  # Ensure the container has been validated before pushing
     runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.setup.outputs.version }}
+      FULL_IMAGE_TAG: ${{ needs.setup.outputs.full_image_tag }}
+      LOCAL_IMAGE_TAG: ${{ needs.setup.outputs.local_image_tag }}   
     steps:
-      - name: Extract Version and Set Image Tag
-        id: version
+      # Step 2.2: -DEBUG- Validate Setup Outputs
+      - name: -DEBUG- Validate Setup Outputs and Verify Docker Image Availability
+        id: debug
+        if: always() && github.event_name == 'push' && github.ref != 'refs/heads/main' # Always run this step for push events except production
         run: |
-          if [[ "${GITHUB_REF}" =~ ^refs/tags/v ]]; then
-            VERSION=${GITHUB_REF#refs/tags/}
-            FULL_IMAGE_TAG="798742520104.dkr.ecr.us-west-1.amazonaws.com/membershiptracker-py-web:${VERSION}"
-            LOCAL_IMAGE_TAG="membershiptracker-py-web:${VERSION}"
-          elif [[ "${GITHUB_REF}" =~ ^refs/tags/stage ]]; then
-            VERSION=${GITHUB_REF#refs/tags/}
-            FULL_IMAGE_TAG="798742520104.dkr.ecr.us-west-1.amazonaws.com/membershiptracker-py-web-dev:${VERSION}"
-            LOCAL_IMAGE_TAG="membershiptracker-py-web-dev:${VERSION}"
-          else
-            VERSION=latest
-            FULL_IMAGE_TAG="798742520104.dkr.ecr.us-west-1.amazonaws.com/membershiptracker-py-web-dev:latest"
-            LOCAL_IMAGE_TAG="membershiptracker-py-web-dev:latest"
-          fi
-          echo "VERSION=${VERSION}" >> $GITHUB_ENV
-          echo "FULL_IMAGE_TAG=${FULL_IMAGE_TAG}" >> $GITHUB_ENV
-          echo "LOCAL_IMAGE_TAG=${LOCAL_IMAGE_TAG}" >> $GITHUB_ENV
-          echo "Version: $VERSION"
+          echo "Version: $VERSION" # Log the extracted version
           echo "Local Image Tag: $LOCAL_IMAGE_TAG"
           echo "Full Image Tag: $FULL_IMAGE_TAG"
+          echo "--- Validate specific container exits ---"
+          docker images $LOCAL_IMAGE_TAG
+          echo "--- Validate all container ---""
+          docker images 
 
-      - name: Debug Image Tag
-        run: |
-          echo "Version: $VERSION"
-          echo "Local Image Tag: $LOCAL_IMAGE_TAG"
-          echo "Full Image Tag: $FULL_IMAGE_TAG"
-
+      # Step 3.1: Log in to Amazon ECR
       - name: Log in to Amazon ECR
+        id: loginecr
         run: |
           aws ecr get-login-password --region us-west-1 | docker login --username AWS --password-stdin 798742520104.dkr.ecr.us-west-1.amazonaws.com
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}  # AWS access key
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}  # AWS secret key
 
-      - name: Re-Tag Image for ECR
-        run: |
-          docker tag $LOCAL_IMAGE_TAG $FULL_IMAGE_TAG
-          echo "Re-tagged $LOCAL_IMAGE_TAG to $FULL_IMAGE_TAG"
-
+      # Step 3.2: Push Docker Image to ECR
       - name: Push Docker Image
+        id: imagepush
         run: |
-          docker push $FULL_IMAGE_TAG
-  # # Step 4: Deploy to Production with ArgoCD
-  # # Not used when ArgoCD is set to pull, not push
-  # deploy-main:
-  #   name: Deploy to Production with ArgoCD
-  #   if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')  # Only deploy on version tags (e.g., v1.0.0)
-  #   needs: push-container  # Ensure the container has been pushed to ECR before deployment
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     # Step 4.1: Sync ArgoCD Application
-  #     - name: Sync ArgoCD Application
-  #       run: |
-  #         argocd app sync membershipTracker-py-web  # Sync the application in ArgoCD
-  #         argocd app wait membershipTracker-py-web --timeout 300  # Wait for the sync to complete
+          docker push $FULL_IMAGE_TAG  # Push the built image to AWS ECR
+
+
