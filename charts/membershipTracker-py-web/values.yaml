@@ -1,0 +1,21 @@
+replicaCount: 2
+
+image:
+  repository: 798742520104.dkr.ecr.us-west-1.amazonaws.com/hlab-ecr-repo
+  pullPolicy: Always
+  tag: "latest"
+
+service:
+  type: ClusterIP
+  port: 8000
+
+ingress:
+  enabled: true
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+  hosts:
+    - host: memTrkPy.home.lab
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+  tls: []

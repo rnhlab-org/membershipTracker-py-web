@@ -1,0 +1,6 @@
+{
+    "sonarlint.connectedMode.project": {
+        "connectionId": "rnhlab-org",
+        "projectKey": "rnhlab-org_membershipTracker-py-web"
+    }
+}
