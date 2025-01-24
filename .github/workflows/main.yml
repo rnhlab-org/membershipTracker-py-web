@@ -63,7 +63,26 @@ jobs:
           echo "::set-output name=version::${VERSION}"
           echo "::set-output name=full_image_tag::${FULL_IMAGE_TAG}"
           echo "::set-output name=local_image_tag::${LOCAL_IMAGE_TAG}"  
-  
+
+  setup-validate:
+    name: Setup Output Variable Validation #
+    needs: 
+      - setup  # Ensure setup job completes successfully before running    
+    env:
+      VERSION: ${{ needs.setup.outputs.version }}
+      FULL_IMAGE_TAG: ${{ needs.setup.outputs.full_image_tag }}
+      LOCAL_IMAGE_TAG: ${{ needs.setup.outputs.local_image_tag }}  
+    runs-on: ubuntu-latest
+    # Step 1: -DEBUG- Validate Setup Outputs
+    steps:  
+      - name: -DEBUG- Validate Setup Outputs
+        id: varsetup
+        # if: always() && github.event_name == 'push' && github.ref != 'refs/heads/main' # Always run this step for push events except production
+        run: |
+          echo "Version: $VERSION" # Log the extracted version
+          echo "Local Image Tag: $LOCAL_IMAGE_TAG"
+          echo "Full Image Tag: $FULL_IMAGE_TAG" 
+        
   code-checks:
     name: Run Code Quality and Security Checks
     runs-on: ubuntu-latest
@@ -115,7 +134,7 @@ jobs:
       # Step 2.2: -DEBUG- Validate Setup Outputs
       - name: -DEBUG- Validate Setup Outputs
         id: varsetup
-        if: always() && github.event_name == 'push' && github.ref != 'refs/heads/main' # Always run this step for push events except production
+        # if: always() && github.event_name == 'push' && github.ref != 'refs/heads/main' # Always run this step for push events except production
         run: |
           echo "Version: $VERSION" # Log the extracted version
           echo "Local Image Tag: $LOCAL_IMAGE_TAG"
@@ -144,7 +163,7 @@ jobs:
       # -DEBUG- Verify Docker Image Creation
       - name: -DEBUG- Verify Docker Image Creation
         id: debug
-        if: always() && github.event_name == 'push' && github.ref != 'refs/heads/main' # Always run this step for push events except production
+        # if: always() && github.event_name == 'push' && github.ref != 'refs/heads/main' # Always run this step for push events except production
         run: |
           echo "--- Validate specific container exits ---"
           docker images $LOCAL_IMAGE_TAG
@@ -177,7 +196,7 @@ jobs:
       # Step 2.2: -DEBUG- Validate Setup Outputs
       - name: -DEBUG- Validate Setup Outputs and Verify Docker Image Availability
         id: debug
-        if: always() && github.event_name == 'push' && github.ref != 'refs/heads/main' # Always run this step for push events except production
+        # if: always() && github.event_name == 'push' && github.ref != 'refs/heads/main' # Always run this step for push events except production
         run: |
           echo "Version: $VERSION" # Log the extracted version
           echo "Local Image Tag: $LOCAL_IMAGE_TAG"
