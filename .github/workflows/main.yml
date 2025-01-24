@@ -81,21 +81,27 @@ jobs:
           sed -i "s/^appVersion:.*/appVersion: ${VERSION}/" charts/membershipTracker-py-web/Chart.yaml
           cat charts/membershipTracker-py-web/Chart.yaml  # Verify the change in logs
 
+        # Step 2.2.2: Update Image Tag in values.yaml
+      - name: Update Image Tag in values.yaml
+        run: |
+          sed -i "s/^  tag:.*/  tag: ${VERSION}/" charts/membershipTracker-py-web/values.yaml
+          cat charts/membershipTracker-py-web/values.yaml  # Verify the change in logs     
+
       # Step 2.3: Debug Version and Tag
       - name: Debug Version and Tag
         run: |
-          echo "Version: ${{ env.VERSION }}"  # Log the extracted version
-          echo "Image Tag: ${{ env.IMAGE_TAG }}"  # Log the image tag
+          echo "Version: $VERSION"  # Log the extracted version
+          echo "Image Tag: $IMAGE_TAG"  # Log the image tag
 
       # Step 2.4: Build Docker Container
       - name: Build Container
         run: |
-          docker build --build-arg APP_VERSION=${{ env.VERSION }} -t ${{ env.IMAGE_TAG }} .  # Build the Docker image with the extracted version
+          docker build --build-arg APP_VERSION=$VERSION -t $IMAGE_TAG .  # Build the Docker image with the extracted version
 
       # Step 2.5: Validate Container Locally
       - name: Validate Container
         run: |
-          docker run -d --name temp-container -p 8080:8000 ${{ env.IMAGE_TAG }}  # Run the container locally
+          docker run -d --name temp-container -p 8080:8000 $IMAGE_TAG  # Run the container locally
           sleep 5  # Wait for the container to start
           curl -f http://localhost:8080 || (docker logs temp-container && exit 1)  # Check if the web page loads successfully
           docker stop temp-container && docker rm temp-container  # Stop and remove the container after validation
@@ -118,7 +124,7 @@ jobs:
       # Step 3.2: Push Docker Image to ECR
       - name: Push Docker Image
         run: |
-          docker push ${{ env.IMAGE_TAG }}  # Push the built image to AWS ECR
+          docker push $IMAGE_TAG  # Push the built image to AWS ECR
 
   # # Step 4: Deploy to Production with ArgoCD
   # # Not used when ArgoCD is set to pull, not push

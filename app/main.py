@@ -29,7 +29,7 @@ async def home(request: Request):
     """
     try:
         # Call the backend API service to fetch the members list
-        response = requests.get("http://api-service.default.svc.cluster.local:8000/members")
+        response = requests.get("http://api-service.default.svc.cluster.local:8000/members", timeout=10)
         members = response.json() if response.status_code == 200 else []
     except Exception as e:
         # Handle any errors gracefully and log the issue
@@ -51,6 +51,7 @@ async def submit(name: str = Form(...), email: str = Form(...)):
         response = requests.post(
             "http://api-service.default.svc.cluster.local:8000/members",
             json={"name": name, "email": email},
+            timeout=10  # Set a timeout of 10 seconds from sonarqube fix
         )
         return {"status": "success" if response.status_code == 200 else "error"}
     except Exception as e:

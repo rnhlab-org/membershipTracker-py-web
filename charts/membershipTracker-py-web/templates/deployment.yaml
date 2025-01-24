@@ -15,11 +15,21 @@ spec:
       labels:
         app: {{ .Chart.Name }}
     spec:
+      automountServiceAccountToken: false ## Added to disable automounting of service account token per SonarCloud recommendation
       containers:
       - name: membershipTracker-py-web
         image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
         ports:
         - containerPort: 8000
+        ## Resource Limits added as per SonarCloud recommendation
+        resources:  
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+            ephemeral-storage: "1Gi"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
         env:
         - name: APP_VERSION
           value: "{{ .Chart.AppVersion }}"
