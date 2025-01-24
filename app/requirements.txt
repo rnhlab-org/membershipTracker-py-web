@@ -1,4 +1,4 @@
-fastapi
-jinja2
-uvicorn
-requests
+fastapi         # Web framework for Python
+jinja2          # Template engine for rendering HTML
+uvicorn         # ASGI server for running the FastAPI app
+requests        # Library for making HTTP requests to the API service
