@@ -78,8 +78,9 @@ jobs:
           fi
           echo "VERSION=${VERSION}" >> $GITHUB_ENV
           echo "IMAGE_TAG=${IMAGE_TAG}" >> $GITHUB_ENV
+          ## Removed for v1.0.0-alpha.5 to test a full copy of above code
           ## Export version and tag as environment variables output of this step
-          echo "::set-output name=image-tag::${IMAGE_TAG}"  # Set the image tag as an environment variable for later steps
+          ## echo "::set-output name=image-tag::${IMAGE_TAG}"  # Set the image tag as an environment variable for later steps
 
         # Step 2.2.1: Manually update Chart appVersion as it does not do it automatically
       - name: Update Chart appVersion
@@ -121,10 +122,26 @@ jobs:
     env:
       IMAGE_TAG: ${{ needs.build-validate.outputs.image-tag }}  # Use output from previous job
     steps:
-      - name: Push Docker Image
+      - name: Extract Version and Set Image Tag
+        id: version
         run: |
-          export IMAGE_TAG=$IMAGE_TAG
-          echo "Pushing Image: $IMAGE_TAG"
+          if [[ "${GITHUB_REF}" =~ ^refs/tags/v ]]; then
+            VERSION=${GITHUB_REF#refs/tags/}
+            IMAGE_TAG="membershiptracker-py-web:${VERSION}"
+          elif [[ "${GITHUB_REF}" =~ ^refs/tags/stage ]]; then
+            VERSION=${GITHUB_REF#refs/tags/}
+            IMAGE_TAG="membershiptracker-py-web-dev:${VERSION}"
+          else
+            VERSION=latest
+            IMAGE_TAG="membershiptracker-py-web-dev:latest"
+          fi
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+          echo "IMAGE_TAG=${IMAGE_TAG}" >> $GITHUB_ENV
+      ## Removed for v1.0.0-alpha.5 to test a full copy of above code
+      # - name: Push Docker Image
+      #   run: |
+      #     export IMAGE_TAG=$IMAGE_TAG
+      #     echo "Pushing Image: $IMAGE_TAG"
 
       # !!! DEBUG !!! : Debug Version and Tag
       - name: Debug Version and Tag
