@@ -57,6 +57,11 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v3
 
+      # !!! DEBUG !!!  Debug GitHub Ref
+      - name: Debug GitHub Ref
+        run: |
+          echo "GitHub Ref: ${GITHUB_REF}"  # Log the GitHub reference for debugging
+
       # Step 2.2: Extract Version and Set Image Tag
       - name: Extract Version and Set Image Tag
         id: version
@@ -87,7 +92,7 @@ jobs:
           sed -i "s/^  tag:.*/  tag: ${VERSION}/" charts/membershipTracker-py-web/values.yaml
           cat charts/membershipTracker-py-web/values.yaml  # Verify the change in logs     
 
-      # Step 2.3: Debug Version and Tag
+      # !!! DEBUG !!! Debug Version and Tag
       - name: Debug Version and Tag
         run: |
           echo "Version: $VERSION"  # Log the extracted version
@@ -113,6 +118,12 @@ jobs:
     needs: build-validate  # Ensure the container has been validated before pushing
     runs-on: ubuntu-latest
     steps:
+      - name: Push Docker Image
+        run: |
+          export IMAGE_TAG=$IMAGE_TAG
+          echo "Pushing Image: $IMAGE_TAG"
+          docker push $IMAGE_TAG
+    
       # Step 3.1: Log in to Amazon ECR
       - name: Log in to Amazon ECR
         run: |
@@ -120,6 +131,12 @@ jobs:
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}  # AWS access key
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}  # AWS secret key
+
+      # !!! DEBUG !!! : Debug Version and Tag
+      - name: Debug Version and Tag
+        run: |
+          echo "Version: $VERSION"  # Log the extracted version
+          echo "Image Tag: $IMAGE_TAG"  # Log the image tag      
 
       # Step 3.2: Push Docker Image to ECR
       - name: Push Docker Image
