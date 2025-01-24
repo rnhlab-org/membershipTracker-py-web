@@ -2,3 +2,4 @@ fastapi         # Web framework for Python
 jinja2          # Template engine for rendering HTML
 uvicorn         # ASGI server for running the FastAPI app
 requests        # Library for making HTTP requests to the API service
+python-multipart # Added after build failed with this dependency missing
