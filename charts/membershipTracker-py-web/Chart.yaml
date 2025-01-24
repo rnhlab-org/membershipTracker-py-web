@@ -1,0 +1,7 @@
+apiVersion: v2
+name: membershipTracker-py-web
+description: A Helm chart for the Membership Tracker Frontend Service
+type: application
+version: 1.0.0
+##appVersion is Dynmaicall updated from the GitHub Actions
+appVersion: x.x.x

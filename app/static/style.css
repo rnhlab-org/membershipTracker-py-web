@@ -1,0 +1,33 @@
+/* Basic styling for the membership tracker web application */
+body {
+    font-family: Arial, sans-serif; /* Use a clean, readable font */
+    margin: 20px; /* Add spacing around the body */
+    padding: 0;
+    background-color: #f4f4f9; /* Light background for better contrast */
+}
+
+form {
+    margin-bottom: 20px; /* Add spacing below the form */
+}
+
+label {
+    display: block; /* Place labels on separate lines */
+    margin-top: 10px; /* Add spacing above each label */
+}
+
+input {
+    margin-bottom: 10px; /* Add spacing below input fields */
+}
+
+button {
+    background-color: #007bff; /* Primary blue color */
+    color: white; /* White text on the button */
+    padding: 5px 10px; /* Add padding for better clickability */
+    border: none; /* Remove default border */
+    border-radius: 3px; /* Slightly rounded corners */
+    cursor: pointer; /* Pointer cursor on hover */
+}
+
+button:hover {
+    background-color: #0056b3; /* Darker blue on hover */
+}
