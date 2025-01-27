@@ -59,14 +59,10 @@ jobs:
       - name: Send Setup Outputs for other Jobs 
         id: outputs
         run: |
-          # # Output variable - OLD
-          # echo "::set-output name=version::${VERSION}"
-          # echo "::set-output name=full_image_tag::${FULL_IMAGE_TAG}"
-          # echo "::set-output name=local_image_tag::${LOCAL_IMAGE_TAG}"  
           # Output variable
-          echo "version=${VERSION}" >> $GITHUB_OUTPUT
-          echo "full_image_tag=${FULL_IMAGE_TAG}" >> $GITHUB_OUTPUT
-          echo "local_image_tag=${LOCAL_IMAGE_TAG}" >> $GITHUB_OUTPUT  
+          echo "::set-output name=version::${VERSION}"
+          echo "::set-output name=full_image_tag::${FULL_IMAGE_TAG}"
+          echo "::set-output name=local_image_tag::${LOCAL_IMAGE_TAG}"  
 
   setup-validate:
     name: Setup Output Variable Validation #
@@ -130,7 +126,6 @@ jobs:
       VERSION: ${{ needs.setup.outputs.version }}
       FULL_IMAGE_TAG: ${{ needs.setup.outputs.full_image_tag }}
       LOCAL_IMAGE_TAG: ${{ needs.setup.outputs.local_image_tag }}   
-
     steps:
       # Step 2.1: Checkout the repository
       - name: Checkout Code
