@@ -190,9 +190,7 @@ jobs:
           echo "Local Image Tag: $LOCAL_IMAGE_TAG"
           echo "Full Image Tag: $FULL_IMAGE_TAG"
           echo "--- Validate specific container exits ---"
-          docker images $LOCAL_IMAGE_TAG
-          echo "--- Validate all container ---""
-          docker images 
+          docker images | grep membershiptracker
 
       # Step 3.1: Log in to Amazon ECR
       - name: Log in to Amazon ECR
