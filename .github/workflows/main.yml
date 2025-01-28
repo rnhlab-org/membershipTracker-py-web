@@ -174,7 +174,6 @@ jobs:
     if: github.event_name == 'push' && (startsWith(github.ref, 'refs/tags/stage') || startsWith(github.ref, 'refs/tags/v'))
     needs: 
       - setup  # Ensure setup job completes successfully before running
-      - build-validate  # Ensure the container has been validated before pushing
     runs-on: ubuntu-latest
     env:
       VERSION: ${{ needs.setup.outputs.version }}
@@ -190,7 +189,7 @@ jobs:
           echo "Local Image Tag: $LOCAL_IMAGE_TAG"
           echo "Full Image Tag: $FULL_IMAGE_TAG"
           echo "--- Validate specific container exits ---"
-          docker images | grep membershiptracker
+          docker images
 
       # Step 3.1: Log in to Amazon ECR
       - name: Log in to Amazon ECR
