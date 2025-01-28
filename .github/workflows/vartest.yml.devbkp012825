@@ -6,7 +6,6 @@ on:
   push:
     branches:
       - stage  # Trigger on direct pushes to the stage branch
-      - v1.0.0-alpha.10-varTS # Test Branch
     tags:
       - 'stage-*'  # Trigger on tags starting with stage- (e.g., stage-1.0.0-alpha.1)
       - 'v*.*.*'    # Trigger on version tags (e.g., v1.0.0)
@@ -53,7 +52,7 @@ jobs:
           echo "Full Image Tag: $FULL_IMAGE_TAG"
 
   setup-validate1:
-    name: Setup Output Variable Validation2 #
+    name: Setup Output Variable Validation #
     needs: 
       - setup  # Ensure setup job completes successfully before running    
     env:
@@ -70,7 +69,7 @@ jobs:
           echo "Full Image Tag: $FULL_IMAGE_TAG" 
 
   setup-validate2:
-    name: Setup Output Variable Validation2 #
+    name: Setup Output Variable Validation #
     needs: 
       - setup  # Ensure setup job completes successfully before running    
     env:
