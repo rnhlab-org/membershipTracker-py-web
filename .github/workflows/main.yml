@@ -31,15 +31,15 @@ jobs:
         run: |
           if [[ "${GITHUB_REF}" =~ ^refs/tags/v ]]; then
             VERSION=${GITHUB_REF#refs/tags/}
-            FULL_IMAGE_TAG="798742520104.dkr.ecr.us-west-1.amazonaws.com/membershiptracker-py-web:${VERSION}"
+            FULL_IMAGE_TAG="798742520104.dkr.ecr.us-west-1.amazonaws.com/hlab-ecr-repo/membershiptracker-py-web:${VERSION}"
             LOCAL_IMAGE_TAG="membershiptracker-py-web:${VERSION}"
           elif [[ "${GITHUB_REF}" =~ ^refs/tags/stage ]]; then
             VERSION=${GITHUB_REF#refs/tags/}
-            FULL_IMAGE_TAG="798742520104.dkr.ecr.us-west-1.amazonaws.com/membershiptracker-py-web-dev:${VERSION}"
+            FULL_IMAGE_TAG="798742520104.dkr.ecr.us-west-1.amazonaws.com/hlab-ecr-repo/membershiptracker-py-web-dev:${VERSION}"
             LOCAL_IMAGE_TAG="membershiptracker-py-web-dev:${VERSION}"
           else
             VERSION=latest
-            FULL_IMAGE_TAG="798742520104.dkr.ecr.us-west-1.amazonaws.com/membershiptracker-py-web-dev:latest"
+            FULL_IMAGE_TAG="798742520104.dkr.ecr.us-west-1.amazonaws.com/hlab-ecr-repo/membershiptracker-py-web-dev:latest"
             LOCAL_IMAGE_TAG="membershiptracker-py-web-dev:latest"
           fi
   
@@ -209,5 +209,7 @@ jobs:
         id: imagepush
         run: |
           docker push $FULL_IMAGE_TAG  # Push the built image to AWS ECR
+
+          798742520104.dkr.ecr.us-west-1.amazonaws.com/hlab-ecr-repo
 
 
