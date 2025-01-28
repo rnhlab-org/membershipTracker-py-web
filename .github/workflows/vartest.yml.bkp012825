@@ -1,0 +1,143 @@
+name: CI/CD Workflow for MembershipTracker-py-web
+
+# Trigger the workflow based on specific events
+on:
+  workflow_dispatch:  # Trigger the workflow manually
+  push:
+    branches:
+      - stage  # Trigger on direct pushes to the stage branch
+    tags:
+      - 'stage-*'  # Trigger on tags starting with stage- (e.g., stage-1.0.0-alpha.1)
+      - 'v*.*.*'    # Trigger on version tags (e.g., v1.0.0)
+  pull_request:
+    branches:
+      - stage  # Trigger on pull requests to stage branch
+      - main   # Trigger on pull requests to main branch
+
+jobs:
+  # Step 1: Run Code Quality and Security Checks
+  setup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Extract Version and Set Image Tag
+        id: extract
+        run: |
+          ## Pull in the version from the tag
+          if [[ "${GITHUB_REF}" =~ ^refs/tags/v ]]; then
+            VERSION=${GITHUB_REF#refs/tags/}
+            FULL_IMAGE_TAG="798742520104.dkr.ecr.us-west-1.amazonaws.com/membershiptracker-py-web:${VERSION}"
+            LOCAL_IMAGE_TAG="membershiptracker-py-web:${VERSION}"
+          elif [[ "${GITHUB_REF}" =~ ^refs/tags/stage ]]; then
+            VERSION=${GITHUB_REF#refs/tags/}
+            FULL_IMAGE_TAG="798742520104.dkr.ecr.us-west-1.amazonaws.com/membershiptracker-py-web-dev:${VERSION}"
+            LOCAL_IMAGE_TAG="membershiptracker-py-web-dev:${VERSION}"
+          else
+            VERSION=latest
+            FULL_IMAGE_TAG="798742520104.dkr.ecr.us-west-1.amazonaws.com/membershiptracker-py-web-dev:latest"
+            LOCAL_IMAGE_TAG="membershiptracker-py-web-dev:latest"
+          fi
+
+          # # Output the version and image tag for other jobs to use
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "full_image_tag=${FULL_IMAGE_TAG}" >> $GITHUB_OUTPUT
+          echo "local_image_tag=${LOCAL_IMAGE_TAG}" >> $GITHUB_OUTPUT  
+
+          # # echo the current version and image tag
+          # echo "VERSION=${VERSION}" >> $GITHUB_ENV
+          # echo "FULL_IMAGE_TAG=${FULL_IMAGE_TAG}" >> $GITHUB_ENV
+          # echo "LOCAL_IMAGE_TAG=${LOCAL_IMAGE_TAG}" >> $GITHUB_ENV
+          echo "Version: $VERSION"
+          echo "Local Image Tag: $LOCAL_IMAGE_TAG"
+          echo "Full Image Tag: $FULL_IMAGE_TAG"
+    outputs:
+      version: ${{ steps.extract.outputs.version }}
+      full_image_tag: ${{ steps.extract.outputs.full_image_tag }}
+      local_image_tag: ${{ steps.extract.outputs.local_image_tag }}
+    # steps:
+    #   # Step 2.2: Extract Version and Set Image Tag
+    #   - name: Extract Version and Set Image Tag
+    #     id: extract
+    #     run: |
+    #       ## Pull in the version from the tag
+    #       if [[ "${GITHUB_REF}" =~ ^refs/tags/v ]]; then
+    #         VERSION=${GITHUB_REF#refs/tags/}
+    #         FULL_IMAGE_TAG="798742520104.dkr.ecr.us-west-1.amazonaws.com/membershiptracker-py-web:${VERSION}"
+    #         LOCAL_IMAGE_TAG="membershiptracker-py-web:${VERSION}"
+    #       elif [[ "${GITHUB_REF}" =~ ^refs/tags/stage ]]; then
+    #         VERSION=${GITHUB_REF#refs/tags/}
+    #         FULL_IMAGE_TAG="798742520104.dkr.ecr.us-west-1.amazonaws.com/membershiptracker-py-web-dev:${VERSION}"
+    #         LOCAL_IMAGE_TAG="membershiptracker-py-web-dev:${VERSION}"
+    #       else
+    #         VERSION=latest
+    #         FULL_IMAGE_TAG="798742520104.dkr.ecr.us-west-1.amazonaws.com/membershiptracker-py-web-dev:latest"
+    #         LOCAL_IMAGE_TAG="membershiptracker-py-web-dev:latest"
+    #       fi
+
+    #       # # Output the version and image tag for other jobs to use
+    #       echo "version=${VERSION}" >> $GITHUB_OUTPUT
+    #       echo "full_image_tag=${FULL_IMAGE_TAG}" >> $GITHUB_OUTPUT
+    #       echo "local_image_tag=${LOCAL_IMAGE_TAG}" >> $GITHUB_OUTPUT  
+
+    #       # # echo the current version and image tag
+    #       # echo "VERSION=${VERSION}" >> $GITHUB_ENV
+    #       # echo "FULL_IMAGE_TAG=${FULL_IMAGE_TAG}" >> $GITHUB_ENV
+    #       # echo "LOCAL_IMAGE_TAG=${LOCAL_IMAGE_TAG}" >> $GITHUB_ENV
+    #       echo "Version: $VERSION"
+    #       echo "Local Image Tag: $LOCAL_IMAGE_TAG"
+    #       echo "Full Image Tag: $FULL_IMAGE_TAG"
+    
+ 
+    # # -DEBUG- Debug GitHub Ref
+    # - name: -DEBUG- GitHub Ref
+    #   run: |
+    #     echo "GitHub Ref: ${GITHUB_REF}"  # Log the GitHub reference for debugging
+    # # -DEBUG- Debug Version and Tag
+    # - name: -DEBUG- Version and Tag
+    #   run: |
+    #     echo "Version: $VERSION" # Log the extracted version
+    #     echo "Local Image Tag: $LOCAL_IMAGE_TAG"
+    #     echo "Full Image Tag: $FULL_IMAGE_TAG"
+    # # Output common job Vars   
+    # # - name: Send Setup Outputs for other Jobs 
+    # #   id: outputs
+    # #   run: |
+
+
+
+  setup-validate1:
+    name: Setup Output Variable Validation #
+    needs: 
+      - setup  # Ensure setup job completes successfully before running    
+    env:
+      VERSION: ${{ needs.setup.outputs.version }}
+      FULL_IMAGE_TAG: ${{ needs.setup.outputs.full_image_tag }}
+      LOCAL_IMAGE_TAG: ${{ needs.setup.outputs.local_image_tag }}  
+    runs-on: ubuntu-latest
+    # Step 1: -DEBUG- Validate Setup Outputs
+    steps:  
+      - name: -DEBUG- Validate Setup Outputs
+        id: vardebug1
+        # if: always() && github.event_name == 'push' && github.ref != 'refs/heads/main' # Always run this step for push events except production
+        run: |
+          echo "Version: $VERSION" # Log the extracted version
+          echo "Local Image Tag: $LOCAL_IMAGE_TAG"
+          echo "Full Image Tag: $FULL_IMAGE_TAG" 
+
+  setup-validate2:
+    name: Setup Output Variable Validation #
+    needs: 
+      - setup  # Ensure setup job completes successfully before running    
+    env:
+      VERSION: ${{ needs.setup.outputs.version }}
+      FULL_IMAGE_TAG: ${{ needs.setup.outputs.full_image_tag }}
+      LOCAL_IMAGE_TAG: ${{ needs.setup.outputs.local_image_tag }}  
+    runs-on: ubuntu-latest
+    # Step 1: -DEBUG- Validate Setup Outputs
+    steps:  
+      - name: -DEBUG- Validate Setup Outputs
+        id: vardebug2
+        # if: always() && github.event_name == 'push' && github.ref != 'refs/heads/main' # Always run this step for push events except production
+        run: |
+          echo "Version: $VERSION" # Log the extracted version
+          echo "Local Image Tag: $LOCAL_IMAGE_TAG"
+          echo "Full Image Tag: $FULL_IMAGE_TAG"
