@@ -208,8 +208,6 @@ jobs:
       - name: Push Docker Image
         id: imagepush
         run: |
-          docker push $FULL_IMAGE_TAG  # Push the built image to AWS ECR
-
-          798742520104.dkr.ecr.us-west-1.amazonaws.com/hlab-ecr-repo
+          docker push $FULL_IMAGE_TAG:$Version  # Push the built image to AWS ECR
 
 
