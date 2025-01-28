@@ -177,7 +177,7 @@ jobs:
     if: github.event_name == 'push' && (startsWith(github.ref, 'refs/tags/stage') || startsWith(github.ref, 'refs/tags/v'))
     needs: 
       - setup
-      - code-checks # Ensure setup job completes successfully before running
+      - build-validate # Ensure build-validate job completes successfully before running
     runs-on: ubuntu-latest
     env:
       VERSION: ${{ needs.setup.outputs.version }}
