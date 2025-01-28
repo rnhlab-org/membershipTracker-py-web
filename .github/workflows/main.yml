@@ -158,7 +158,6 @@ jobs:
           echo "--- Validate all container ---"
           docker images 
     
-
       # Step 2.5: Validate Container Locally
       - name: Validate Container
         id: container-validation
@@ -166,6 +165,10 @@ jobs:
           docker run -d --name temp-container -p 8080:8000 $LOCAL_IMAGE_TAG  # Run the container locally
           sleep 5  # Wait for the container to start
           curl -f http://localhost:8080 || (docker logs temp-container && exit 1)  # Check if the web page loads successfully
+
+      - name: Stop and Remove Container if tage does not include stage/v
+        if: github.event_name == 'push' && !(startsWith(github.ref, 'refs/tags/stage') || startsWith(github.ref, 'refs/tags/v'))
+        run: |
           docker stop temp-container && docker rm temp-container  # Stop and remove the container after validation
 
   # Step 3: Push Container to AWS ECR
@@ -173,7 +176,8 @@ jobs:
     name: Push Container to AWS ECR
     if: github.event_name == 'push' && (startsWith(github.ref, 'refs/tags/stage') || startsWith(github.ref, 'refs/tags/v'))
     needs: 
-      - setup  # Ensure setup job completes successfully before running
+      - setup
+      - code-checks # Ensure setup job completes successfully before running
     runs-on: ubuntu-latest
     env:
       VERSION: ${{ needs.setup.outputs.version }}
