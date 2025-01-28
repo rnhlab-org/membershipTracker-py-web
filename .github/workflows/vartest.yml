@@ -6,6 +6,7 @@ on:
   push:
     branches:
       - stage  # Trigger on direct pushes to the stage branch
+      - v1.0.0-alpha.10-varTS # Test Branch
     tags:
       - 'stage-*'  # Trigger on tags starting with stage- (e.g., stage-1.0.0-alpha.1)
       - 'v*.*.*'    # Trigger on version tags (e.g., v1.0.0)
