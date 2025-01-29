@@ -17,7 +17,7 @@ on:
       - main   # Trigger on pull requests to main branch
 
 jobs:
-  # Step 1: Run Code Quality and Security Checks
+  # Step 0: Setup
   setup:
     runs-on: ubuntu-latest
     outputs:
@@ -25,7 +25,7 @@ jobs:
       full_image_tag: ${{ steps.extract.outputs.full_image_tag }}
       local_image_tag: ${{ steps.extract.outputs.local_image_tag }}
     steps:
-      # Step 2.2: Extract Version and Set Image Tag
+      # Step 1: Extract Version and Set Image Tag
       - name: Extract Version and Set Image Tag
         id: extract
         run: |
@@ -52,7 +52,7 @@ jobs:
           echo "Version: $VERSION"
           echo "Local Image Tag: $LOCAL_IMAGE_TAG"
           echo "Full Image Tag: $FULL_IMAGE_TAG"
-
+  # Step 2: Setup  Validation 
   setup-validate:
     name: Setup Output Variable Validation #
     needs: 
@@ -62,7 +62,7 @@ jobs:
       FULL_IMAGE_TAG: ${{ needs.setup.outputs.full_image_tag }}
       LOCAL_IMAGE_TAG: ${{ needs.setup.outputs.local_image_tag }} 
     runs-on: ubuntu-latest
-    # Step 1: -DEBUG- Validate Setup Outputs
+    # Step 2.1: -DEBUG- Validate Setup Outputs
     steps:  
       - name: -DEBUG- Validate Setup Outputs
         id: vardebug1
@@ -70,40 +70,40 @@ jobs:
           echo "Version: $VERSION" # Log the extracted version
           echo "Local Image Tag: $LOCAL_IMAGE_TAG"
           echo "Full Image Tag: $FULL_IMAGE_TAG" 
-        
+  # Step 3: Code checks      
   code-checks:
     name: Run Code Quality and Security Checks
     runs-on: ubuntu-latest
     steps:
-      # Step 1.1: Checkout the repository
+      # Step 3.1: Checkout the repository
       - name: Checkout Code
         uses: actions/checkout@v3
         with:
           fetch-depth: 0  # Fetch full Git history for analysis
 
-      # Step 1.2: Set up Python environment
+      # Step 3.2: Set up Python environment
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.9'  # Use Python 3.9 for the workflow
 
-      # Step 1.3: Install dependencies
+      # Step 3.3: Install dependencies
       - name: Install Python Dependencies
         run: |
           pip install -r app/requirements.txt  # Install project dependencies
           pip install bandit  # Install Bandit for security checks
 
-      # Step 1.4: Run Bandit for security checks
+      # Step 3.4: Run Bandit for security checks
       - name: Run Bandit Security Checks
         run: bandit -r app/  # Recursively scan the app directory for vulnerabilities
 
-      # Step 1.5: Run SonarCloud Analysis
+      # Step 3.5: Run SonarCloud Analysis
       - name: Run SonarCloud Scan
         uses: sonarsource/sonarcloud-github-action@v2
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}  # Use the SonarCloud token for authentication
 
-  # Step 2: Build and Validate Container
+  # Step 4: Build and Validate Container
   build-validate-push:
     name: Build, Validate, and Discard Container
     needs: 
@@ -115,67 +115,52 @@ jobs:
       FULL_IMAGE_TAG: ${{ needs.setup.outputs.full_image_tag }}
       LOCAL_IMAGE_TAG: ${{ needs.setup.outputs.local_image_tag }}    
     steps:
-      # Step 2.1: Checkout the repository
+      # Step 4.1: Checkout the repository
       - name: Checkout Code
         uses: actions/checkout@v3
 
-      # Step 2.2: -DEBUG- Validate Setup Outputs
+      # Step 4.2: -DEBUG- Validate Setup Outputs
       - name: -DEBUG- Validate Setup Outputs
-        id: varsetup
-        # if: always() && github.event_name == 'push' && github.ref != 'refs/heads/main' # Always run this step for push events except production
         run: |
           echo "Version: $VERSION" # Log the extracted version
           echo "Local Image Tag: $LOCAL_IMAGE_TAG"
           echo "Full Image Tag: $FULL_IMAGE_TAG" 
 
-        # Step 2.2.1: Manually update Chart appVersion as it does not do it automatically
+        # Step 4.3: Manually update Chart appVersion as it does not do it automatically
       - name: Update Chart appVersion
-        id: update-chart
         run: |
           sed -i "s/^appVersion:.*/appVersion: ${VERSION}/" charts/membershipTracker-py-web/Chart.yaml
           cat charts/membershipTracker-py-web/Chart.yaml  # Verify the change in logs
 
-        # Step 2.2.2: Update Image Tag in values.yaml
+        # Step 4.4: Update Image Tag in values.yaml
       - name: Update Image Tag in values.yaml
-        id: update-values
         run: |
           sed -i "s/^  tag:.*/  tag: ${VERSION}/" charts/membershipTracker-py-web/values.yaml
           cat charts/membershipTracker-py-web/values.yaml  # Verify the change in logs     
 
-      # Step 2.4: Build Docker Container
+      # Step 4.5: Build Docker Container
       - name: Build Container
-        id: buildcontainer
         run: |
           docker build --build-arg APP_VERSION=$VERSION -t $LOCAL_IMAGE_TAG .  # Build the Docker image with the extracted version
           docker tag $LOCAL_IMAGE_TAG $FULL_IMAGE_TAG
 
-      # -DEBUG- Verify Docker Image Creation
+      # Step 4.6 Debugging: Verify Docker Image Creation
       - name: -DEBUG- Verify Docker Image Creation
-        id: debug
         run: |
-          echo "--- Validate specific container exits ---"
+          echo "--- Validate specific container exists ---"
           docker images $LOCAL_IMAGE_TAG
-          echo "--- Validate all container ---"
-          docker images 
+          echo "--- Validate all containers ---"
+          docker images  
     
-      # Step 2.5: Validate Container Locally
+      # Step 4.7: Validate Container Locally
       - name: Validate Container
-        id: container-validation
         run: |
           docker run -d --name temp-container -p 8080:8000 $LOCAL_IMAGE_TAG  # Run the container locally
           sleep 5  # Wait for the container to start
           curl -f http://localhost:8080 || (docker logs temp-container && exit 1)  # Check if the web page loads successfully
-
-      - name: Stop and Remove Container if tage does not include stage/v
-        if: github.event_name == 'push' && !(startsWith(github.ref, 'refs/tags/stage') || startsWith(github.ref, 'refs/tags/v'))
-        run: |
           docker stop temp-container && docker rm temp-container  # Stop and remove the container after validation
       
-      # Step to show Docker images
-      - name: Show Docker Images
-        run: docker images # List all Docker images
-
-      # Step 3.1: Log in to Amazon ECR
+     # Step 4.8: Log in to Amazon ECR
       - name: Log in to Amazon ECR
         if: github.event_name == 'push' && (startsWith(github.ref, 'refs/tags/stage') || startsWith(github.ref, 'refs/tags/v'))
         id: loginecr
@@ -185,7 +170,7 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}  # AWS access key
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}  # AWS secret key
 
-      # Step 3.2: Push Docker Image to ECR
+      # Step 4.9: Push Docker Image to ECR
       - name: Push Docker Image
         if: github.event_name == 'push' && (startsWith(github.ref, 'refs/tags/stage') || startsWith(github.ref, 'refs/tags/v'))
         id: imagepush
@@ -193,50 +178,11 @@ jobs:
           echo "Version: $VERSION" 
           echo "Local Image Tag: $LOCAL_IMAGE_TAG"
           echo "Full Image Tag: $FULL_IMAGE_TAG"
-          docker push $FULL_IMAGE_TAG  # Push the built image to AWS ECR        
+          docker push $FULL_IMAGE_TAG       
 
-      # Step 3.2: Push Docker Image to ECR
+      # Step 4.10: Push Docker Image to ECR
       - name: Cleanup Docker Images
+        if: success()
         run: |
-          docker image prune -f          
-
-  # # Step 3: Push Container to AWS ECR
-  # push-container:
-  #   name: Push Container to AWS ECR
-  #   if: github.event_name == 'push' && (startsWith(github.ref, 'refs/tags/stage') || startsWith(github.ref, 'refs/tags/v'))
-  #   needs: 
-  #     - setup
-  #     - build-validate # Ensure build-validate job completes successfully before running
-  #   runs-on: ubuntu-latest
-  #   env:
-  #     VERSION: ${{ needs.setup.outputs.version }}
-  #     FULL_IMAGE_TAG: ${{ needs.setup.outputs.full_image_tag }}
-  #     LOCAL_IMAGE_TAG: ${{ needs.setup.outputs.local_image_tag }}   
-  #   steps:
-  #     # Step 2.2: -DEBUG- Validate Setup Outputs
-  #     - name: Show Docker Images and var values
-  #       run: |
-  #         echo "Version: $VERSION" # Log the extracted version
-  #         echo "Local Image Tag: $LOCAL_IMAGE_TAG"
-  #         echo "Full Image Tag: $FULL_IMAGE_TAG"
-  #         docker images # List all Docker images
-
-  #     # Step 3.1: Log in to Amazon ECR
-  #     - name: Log in to Amazon ECR
-  #       id: loginecr
-  #       run: |
-  #         aws ecr get-login-password --region us-west-1 | docker login --username AWS --password-stdin 798742520104.dkr.ecr.us-west-1.amazonaws.com
-  #       env:
-  #         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}  # AWS access key
-  #         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}  # AWS secret key
-
-  #     # Step 3.2: Push Docker Image to ECR
-  #     - name: Push Docker Image
-  #       id: imagepush
-  #       run: |
-  #         echo "Version: $VERSION" 
-  #         echo "Local Image Tag: $LOCAL_IMAGE_TAG"
-  #         echo "Full Image Tag: $FULL_IMAGE_TAG"
-  #         docker push $FULL_IMAGE_TAG  # Push the built image to AWS ECR
-
+          docker image prune -f           
 
