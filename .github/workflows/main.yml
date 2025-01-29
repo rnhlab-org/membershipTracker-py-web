@@ -147,11 +147,11 @@ jobs:
         id: buildcontainer
         run: |
           docker build --build-arg APP_VERSION=$VERSION -t $LOCAL_IMAGE_TAG .  # Build the Docker image with the extracted version
+          docker tag $LOCAL_IMAGE_TAG $FULL_IMAGE_TAG
 
       # -DEBUG- Verify Docker Image Creation
       - name: -DEBUG- Verify Docker Image Creation
         id: debug
-        # if: always() && github.event_name == 'push' && github.ref != 'refs/heads/main' # Always run this step for push events except production
         run: |
           echo "--- Validate specific container exits ---"
           docker images $LOCAL_IMAGE_TAG
@@ -170,6 +170,10 @@ jobs:
         if: github.event_name == 'push' && !(startsWith(github.ref, 'refs/tags/stage') || startsWith(github.ref, 'refs/tags/v'))
         run: |
           docker stop temp-container && docker rm temp-container  # Stop and remove the container after validation
+      
+      # Step to show Docker images
+      - name: Show Docker Images
+        run: docker images # List all Docker images
 
   # Step 3: Push Container to AWS ECR
   push-container:
@@ -185,15 +189,12 @@ jobs:
       LOCAL_IMAGE_TAG: ${{ needs.setup.outputs.local_image_tag }}   
     steps:
       # Step 2.2: -DEBUG- Validate Setup Outputs
-      - name: -DEBUG- Validate Setup Outputs and Verify Docker Image Availability
-        id: debug
-        # if: always() && github.event_name == 'push' && github.ref != 'refs/heads/main' # Always run this step for push events except production
+      - name: Show Docker Images and var values
         run: |
           echo "Version: $VERSION" # Log the extracted version
           echo "Local Image Tag: $LOCAL_IMAGE_TAG"
           echo "Full Image Tag: $FULL_IMAGE_TAG"
-          echo "--- Validate specific container exits ---"
-          docker images
+          docker images # List all Docker images
 
       # Step 3.1: Log in to Amazon ECR
       - name: Log in to Amazon ECR
@@ -208,6 +209,9 @@ jobs:
       - name: Push Docker Image
         id: imagepush
         run: |
-          docker push $FULL_IMAGE_TAG:$Version  # Push the built image to AWS ECR
+          echo "Version: $VERSION" 
+          echo "Local Image Tag: $LOCAL_IMAGE_TAG"
+          echo "Full Image Tag: $FULL_IMAGE_TAG"
+          docker push $FULL_IMAGE_TAG  # Push the built image to AWS ECR
 
 
