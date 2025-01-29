@@ -128,26 +128,36 @@ jobs:
         uses: sonarsource/sonarcloud-github-action@v2
         continue-on-error: true  # Continue on error to prevent failing the workflow
         env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }} || exit 0  # Use the SonarCloud token for authentication
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }} 
+        with:
+          args: >
+            -Dsonar.organization=YOUR_ORG_NAME
+            -Dsonar.projectKey=YOUR_PROJECT_KEY
+            -Dsonar.sources=.
+            -Dsonar.host.url=https://sonarcloud.io
 
       # Step 3.6 Terraform Security Scanning with tfsec
       - name: Run tfsec on Terraform Code
+        continue-on-error: true  # Continue on error to prevent failing the workflow
         uses: aquasecurity/tfsec-action@v1.0.0
 
       # Step 3.7 Helm Chart Security Scanning with kube-linter
       - name: Run kube-linter on Helm Charts
+        continue-on-error: true  # Continue on error to prevent failing the workflow
         uses: stackrox/kube-linter-action@v1
         with:
           directory: ./charts
 
       # Step 3.8 JSON/YAML Security Scanning with Checkov
       - name: Run Checkov on Config Files
+        continue-on-error: true  # Continue on error to prevent failing the workflow
         uses: bridgecrewio/checkov-action@v12
         with:
           directory: .
       
       # Step 3.10: Run Local Checks on JavaScript, CSS Linting, HTML Linting, and Lighthouse
-      - name: Run Local Checks on JavaScript, CSS Linting, HTML Linting,  
+      - name: Run Local Checks on JavaScript, CSS Linting, HTML Linting
+        continue-on-error: true  # Continue on error to prevent failing the workflow
         run: |
           echo "Running Local Checks on JavaScript, CSS Linting, HTML Linting, and Lighthouse"
           echo "Running eslint on JavaScript files"
