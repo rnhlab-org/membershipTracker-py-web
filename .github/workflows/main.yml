@@ -161,7 +161,7 @@ jobs:
         run: |
           echo "Running Local Checks on JavaScript, CSS Linting, HTML Linting, and Lighthouse"
           echo "Running eslint on JavaScript files"
-          npx eslint . --ext .js,.jsx,.ts #check JavaScript files:
+          npx eslint .  #check JavaScript files:
           
           echo "run stylelint on CSS files"  
           npx stylelint "**/*.css"

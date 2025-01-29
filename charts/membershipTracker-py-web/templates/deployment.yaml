@@ -16,6 +16,12 @@ spec:
       labels:
         app: {{ .Chart.Name }}
     spec:
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        runAsNonRoot: true
+    spec:
       automountServiceAccountToken: false ## Added to disable automounting of service account token per SonarCloud recommendation
       terminationGracePeriodSeconds: 30 #  Ensures safe pod shutdown
       containers:
@@ -32,6 +38,7 @@ spec:
           readOnlyRootFilesystem: true # Prevents write access to the root filesystem
           runAsGroup: 1000 # Use a non-root group
           runAsUser: 1000 # Use a non-root user
+          fsGroup: 1000 # Use a non-root group
           runAsNonRoot: true # Prevents running as root
           allowPrivilegeEscalation: false # Prevents security vulnerabilities
         ports:
