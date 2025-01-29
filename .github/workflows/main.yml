@@ -104,7 +104,7 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}  # Use the SonarCloud token for authentication
 
   # Step 2: Build and Validate Container
-  build-validate:
+  build-validate-push:
     name: Build, Validate, and Discard Container
     needs: 
     - setup  # Ensure setup job completes successfully before running
@@ -175,29 +175,9 @@ jobs:
       - name: Show Docker Images
         run: docker images # List all Docker images
 
-  # Step 3: Push Container to AWS ECR
-  push-container:
-    name: Push Container to AWS ECR
-    if: github.event_name == 'push' && (startsWith(github.ref, 'refs/tags/stage') || startsWith(github.ref, 'refs/tags/v'))
-    needs: 
-      - setup
-      - build-validate # Ensure build-validate job completes successfully before running
-    runs-on: ubuntu-latest
-    env:
-      VERSION: ${{ needs.setup.outputs.version }}
-      FULL_IMAGE_TAG: ${{ needs.setup.outputs.full_image_tag }}
-      LOCAL_IMAGE_TAG: ${{ needs.setup.outputs.local_image_tag }}   
-    steps:
-      # Step 2.2: -DEBUG- Validate Setup Outputs
-      - name: Show Docker Images and var values
-        run: |
-          echo "Version: $VERSION" # Log the extracted version
-          echo "Local Image Tag: $LOCAL_IMAGE_TAG"
-          echo "Full Image Tag: $FULL_IMAGE_TAG"
-          docker images # List all Docker images
-
       # Step 3.1: Log in to Amazon ECR
       - name: Log in to Amazon ECR
+        if: github.event_name == 'push' && (startsWith(github.ref, 'refs/tags/stage') || startsWith(github.ref, 'refs/tags/v'))
         id: loginecr
         run: |
           aws ecr get-login-password --region us-west-1 | docker login --username AWS --password-stdin 798742520104.dkr.ecr.us-west-1.amazonaws.com
@@ -207,11 +187,56 @@ jobs:
 
       # Step 3.2: Push Docker Image to ECR
       - name: Push Docker Image
+        if: github.event_name == 'push' && (startsWith(github.ref, 'refs/tags/stage') || startsWith(github.ref, 'refs/tags/v'))
         id: imagepush
         run: |
           echo "Version: $VERSION" 
           echo "Local Image Tag: $LOCAL_IMAGE_TAG"
           echo "Full Image Tag: $FULL_IMAGE_TAG"
-          docker push $FULL_IMAGE_TAG  # Push the built image to AWS ECR
+          docker push $FULL_IMAGE_TAG  # Push the built image to AWS ECR        
+
+      # Step 3.2: Push Docker Image to ECR
+      - name: Cleanup Docker Images
+        run: |
+          docker image prune -f          
+
+  # # Step 3: Push Container to AWS ECR
+  # push-container:
+  #   name: Push Container to AWS ECR
+  #   if: github.event_name == 'push' && (startsWith(github.ref, 'refs/tags/stage') || startsWith(github.ref, 'refs/tags/v'))
+  #   needs: 
+  #     - setup
+  #     - build-validate # Ensure build-validate job completes successfully before running
+  #   runs-on: ubuntu-latest
+  #   env:
+  #     VERSION: ${{ needs.setup.outputs.version }}
+  #     FULL_IMAGE_TAG: ${{ needs.setup.outputs.full_image_tag }}
+  #     LOCAL_IMAGE_TAG: ${{ needs.setup.outputs.local_image_tag }}   
+  #   steps:
+  #     # Step 2.2: -DEBUG- Validate Setup Outputs
+  #     - name: Show Docker Images and var values
+  #       run: |
+  #         echo "Version: $VERSION" # Log the extracted version
+  #         echo "Local Image Tag: $LOCAL_IMAGE_TAG"
+  #         echo "Full Image Tag: $FULL_IMAGE_TAG"
+  #         docker images # List all Docker images
+
+  #     # Step 3.1: Log in to Amazon ECR
+  #     - name: Log in to Amazon ECR
+  #       id: loginecr
+  #       run: |
+  #         aws ecr get-login-password --region us-west-1 | docker login --username AWS --password-stdin 798742520104.dkr.ecr.us-west-1.amazonaws.com
+  #       env:
+  #         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}  # AWS access key
+  #         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}  # AWS secret key
+
+  #     # Step 3.2: Push Docker Image to ECR
+  #     - name: Push Docker Image
+  #       id: imagepush
+  #       run: |
+  #         echo "Version: $VERSION" 
+  #         echo "Local Image Tag: $LOCAL_IMAGE_TAG"
+  #         echo "Full Image Tag: $FULL_IMAGE_TAG"
+  #         docker push $FULL_IMAGE_TAG  # Push the built image to AWS ECR
 
 
