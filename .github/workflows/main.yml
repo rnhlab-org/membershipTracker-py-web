@@ -25,14 +25,18 @@ jobs:
       full_image_tag: ${{ steps.extract.outputs.full_image_tag }}
       local_image_tag: ${{ steps.extract.outputs.local_image_tag }}
     steps:
-      # # Step 1: Run Actionlint on GitHub Actions workflows, 
-      # # in setup Catches workflow syntax errors early
+
+      # Step 0.1: Checkout the repository
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      # # Step 0.2: Run Actionlint on GitHub Actions workflows, in setup Catches workflow syntax errors early
       - name: Run Actionlint on GitHub Actions workflows
         uses: reviewdog/action-actionlint@v1
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
-      # Step 1: Extract Version and Set Image Tag
+      # Step 0.3: Extract Version and Set Image Tag
       - name: Extract Version and Set Image Tag
         id: extract
         run: |
