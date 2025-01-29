@@ -31,15 +31,15 @@ jobs:
         run: |
           if [[ "${GITHUB_REF}" =~ ^refs/tags/v ]]; then
             VERSION=${GITHUB_REF#refs/tags/}
-            FULL_IMAGE_TAG="798742520104.dkr.ecr.us-west-1.amazonaws.com/hlab-ecr-repo/membershiptracker-py-web:${VERSION}"
+            FULL_IMAGE_TAG="798742520104.dkr.ecr.us-west-1.amazonaws.com/hlab-ecr-repo:membershiptracker-py-web-${VERSION}"
             LOCAL_IMAGE_TAG="membershiptracker-py-web:${VERSION}"
           elif [[ "${GITHUB_REF}" =~ ^refs/tags/stage ]]; then
             VERSION=${GITHUB_REF#refs/tags/}
-            FULL_IMAGE_TAG="798742520104.dkr.ecr.us-west-1.amazonaws.com/hlab-ecr-repo/membershiptracker-py-web-dev:${VERSION}"
+            FULL_IMAGE_TAG="798742520104.dkr.ecr.us-west-1.amazonaws.com/hlab-ecr-repo:membershiptracker-py-web-dev-${VERSION}"
             LOCAL_IMAGE_TAG="membershiptracker-py-web-dev:${VERSION}"
           else
             VERSION=latest
-            FULL_IMAGE_TAG="798742520104.dkr.ecr.us-west-1.amazonaws.com/hlab-ecr-repo/membershiptracker-py-web-dev:latest"
+            FULL_IMAGE_TAG="798742520104.dkr.ecr.us-west-1.amazonaws.com/hlab-ecr-repo:membershiptracker-py-web-dev-latest"
             LOCAL_IMAGE_TAG="membershiptracker-py-web-dev:latest"
           fi
   
@@ -73,6 +73,7 @@ jobs:
   # Step 3: Code checks      
   code-checks:
     name: Run Code Quality and Security Checks
+    needs: setup  # Ensure setup job completes successfully before running
     runs-on: ubuntu-latest
     steps:
       # Step 3.1: Checkout the repository
