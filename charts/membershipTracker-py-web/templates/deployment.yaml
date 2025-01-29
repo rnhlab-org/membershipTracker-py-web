@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ .Release.Name }}
+  namespace: {{ .Values.namespace }} # Explicitly specify a namespace in the Helm template ##Checkov fix
   labels:
     app: {{ .Chart.Name }}
     chart: {{ .Chart.Name }}-{{ .Chart.Version }}
@@ -19,15 +20,35 @@ spec:
       terminationGracePeriodSeconds: 30 #  Ensures safe pod shutdown
       containers:
       - name: membershipTracker-py-web
-        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        image: "{{ .Values.image.repository }}@{{ .Values.image.digest }}" # Use image digest instead of tag ##Checkov fix
+        #image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}" ##Checkov fix
+        imagePullPolicy: {{ .Values.image.pullPolicy }} #  Always pull the image ##Checkov fix
         securityContext:
+          seccompProfile:              # Add a security context with seccompProfile ##Checkov fix
+            type: RuntimeDefault     # Add a security context with seccompProfile  ##Checkov fix 
+          capabilities:  ##Checkov fix
+            drop:                     # Drop all capabilities and add only the necessary ones ##Checkov fix
+              - ALL ##Checkov fix
           readOnlyRootFilesystem: true # Prevents write access to the root filesystem
+          runAsGroup: 1000 # Use a non-root group
           runAsUser: 1000 # Use a non-root user
           runAsNonRoot: true # Prevents running as root
           allowPrivilegeEscalation: false # Prevents security vulnerabilities
         ports:
         - containerPort: 8000
         ## Resource Limits added as per SonarCloud recommendation
+        livenessProbe:    #  Add a liveness probe to check if the container is running ##Checkov fix
+          httpGet:                          ##Checkov fix
+            path: /healthz
+            port: 8000
+          initialDelaySeconds: 3
+          periodSeconds: 10
+        readinessProbe:   #  Add a readiness probe to check if the container is ready to serve traffic ##Checkov fix
+          httpGet:
+            path: /readyz
+            port: 8000
+          initialDelaySeconds: 3
+          periodSeconds: 5
         resources:  
           requests:
             memory: "256Mi" # 256 MB

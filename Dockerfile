@@ -1,10 +1,23 @@
 # Use a slim Python base image to keep the image size minimal
 FROM python:3.9-slim
 
-# Set the working directory in the container
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s \
+  CMD ["curl", "--fail", "http://localhost:8000/healthz"]
+
+# Create a non-root user ##Checkov fix
+RUN groupadd -r appuser && useradd -r -g appuser appuser
+
+# Set the working directory in the container  ##Checkov fix
 WORKDIR /app
 
-# Define a build argument for the application version
+# Change ownership ##Checkov fix
+COPY app/ ./
+RUN chown -R appuser:appuser /app
+
+# Switch to non-root user ##Checkov fix
+USER appuser
+
+# Define a build argument for the application version ##Checkov fix
 ARG APP_VERSION
 
 # Set the application version as an environment variable inside the container

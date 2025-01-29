@@ -1,6 +1,7 @@
 Version: v1
 kind: Service
 metadata:
+  namespace: {{ .Values.namespace }} ##Checkov fix
   name: {{ .Release.Name }}
 spec:
   type: {{ .Values.service.type }}

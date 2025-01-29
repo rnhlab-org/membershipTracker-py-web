@@ -1,0 +1,19 @@
+apiVersion: networking.k8s.io/v1 ##Checkov fix
+kind: NetworkPolicy
+metadata:
+  name: allow-only-app
+  namespace: {{ .Values.namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      app: {{ .Chart.Name }}
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: ingress-nginx
+    ports:
+    - protocol: TCP
+      port: 8000

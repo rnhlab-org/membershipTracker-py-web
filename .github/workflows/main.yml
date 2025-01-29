@@ -289,5 +289,17 @@ jobs:
         run: |
           echo "Cleanup Docker Images"
           # Ensures older unused images are cleaned, but doesn't remove images used in parallel builds.
-          docker image prune -f --filter "until=24h"           
+          docker image prune -f --filter "until=24h"     
+          
+      # # Step 4.11: Push Helm Chart to Artifact Repository
+      - name: Retrieve Image Digest from AWS ECR # Retrieve the image digest from AWS ECR
+        id: get-digest
+        run: |
+          DIGEST=$(aws ecr describe-images --repository-name hlab-ecr-repo \
+            --query "imageDetails[?imageTags[0]=='$VERSION'].imageDigest" --output text)
+          echo "DIGEST=$DIGEST" >> $GITHUB_ENV      # Set the DIGEST as an environment variable for later use
+      # # Step 4.12: Update Helm values.yaml with Digest
+      - name: Update Helm values.yaml with Digest
+        run: |
+          sed -i "s|digest:.*|digest: \"$DIGEST\"|" charts/membershipTracker-py-web/values.yaml    ## Update the digest in the Helm values.yaml
 
