@@ -16,20 +16,36 @@ spec:
         app: {{ .Chart.Name }}
     spec:
       automountServiceAccountToken: false ## Added to disable automounting of service account token per SonarCloud recommendation
+      terminationGracePeriodSeconds: 30 #  Ensures safe pod shutdown
       containers:
       - name: membershipTracker-py-web
         image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        securityContext:
+          readOnlyRootFilesystem: true # Prevents write access to the root filesystem
+          runAsUser: 1000 # Use a non-root user
+          runAsNonRoot: true # Prevents running as root
+          allowPrivilegeEscalation: false # Prevents security vulnerabilities
         ports:
         - containerPort: 8000
         ## Resource Limits added as per SonarCloud recommendation
         resources:  
           requests:
-            memory: "256Mi"
-            cpu: "250m"
-            ephemeral-storage: "1Gi"
+            memory: "256Mi" # 256 MB
+            cpu: "250m" # 250 millicpu
+            ephemeral-storage: "1Gi" # 1 GB
           limits:
-            memory: "512Mi"
-            cpu: "500m"
+            memory: "512Mi" # 512 MB
+            cpu: "500m" # 500 millicpu
         env:
         - name: APP_VERSION
-          value: "{{ .Chart.AppVersion }}"
+          value: "{{ .Chart.AppVersion }}" #  Dynamically updated from the GitHub Actions
+      affinity:
+        podAntiAffinity:  #  Ensures that pods are not scheduled on the same node
+          requiredDuringSchedulingIgnoredDuringExecution:  #  Ensures that pods are not scheduled on the same node
+            - labelSelector: #  Ensures that pods are not scheduled on the same node
+                matchExpressions:
+                  - key: app
+                    operator: In
+                    values:
+                      - membershipTracker-py-web
+              topologyKey: "kubernetes.io/hostname"

@@ -3,7 +3,7 @@ replicaCount: 2
 image:
   repository: 798742520104.dkr.ecr.us-west-1.amazonaws.com/hlab-ecr-repo
   pullPolicy: Always
-  tag: "latest"
+  tag: "devbld"
 
 service:
   type: ClusterIP

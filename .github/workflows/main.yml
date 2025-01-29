@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.extract.outputs.version }}
-      full_image_tag: ${{ steps.extract.outputs.full_image_tag }}
+      ecr_image_tag: ${{ steps.extract.outputs.ecr_image_tag }}
       local_image_tag: ${{ steps.extract.outputs.local_image_tag }}
     steps:
 
@@ -43,29 +43,29 @@ jobs:
           if [[ "${GITHUB_REF}" =~ ^refs/tags/v ]]; then
             VERSION=${GITHUB_REF#refs/tags/}
             #formated for ECR without using the :latest tag use -${VERSION} instead
-            FULL_IMAGE_TAG="798742520104.dkr.ecr.us-west-1.amazonaws.com/hlab-ecr-repo:membershiptracker-py-web-${VERSION}"
+            ECR_IMAGE_TAG="798742520104.dkr.ecr.us-west-1.amazonaws.com/hlab-ecr-repo:membershiptracker-py-web-${VERSION}"
             LOCAL_IMAGE_TAG="membershiptracker-py-web:${VERSION}"
           elif [[ "${GITHUB_REF}" =~ ^refs/tags/stage ]]; then
             VERSION=${GITHUB_REF#refs/tags/}
             #formated for ECR without using the :latest tag use -${VERSION} instead
-            FULL_IMAGE_TAG="798742520104.dkr.ecr.us-west-1.amazonaws.com/hlab-ecr-repo:membershiptracker-py-web-dev-${VERSION}"
+            ECR_IMAGE_TAG="798742520104.dkr.ecr.us-west-1.amazonaws.com/hlab-ecr-repo:membershiptracker-py-web-dev-${VERSION}"
             LOCAL_IMAGE_TAG="membershiptracker-py-web-dev:${VERSION}"
           else
-            VERSION=latest
+            VERSION=devbld
             #formated for ECR without using the :latest tag use -${VERSION} instead
-            FULL_IMAGE_TAG="798742520104.dkr.ecr.us-west-1.amazonaws.com/hlab-ecr-repo:membershiptracker-py-web-dev-latest"
-            LOCAL_IMAGE_TAG="membershiptracker-py-web-dev:latest"
+            ECR_IMAGE_TAG="798742520104.dkr.ecr.us-west-1.amazonaws.com/hlab-ecr-repo:membershiptracker-py-web-dev-devbld"
+            LOCAL_IMAGE_TAG="membershiptracker-py-web-dev:devbld"
           fi
   
           # Output the version and image tag for other jobs to use
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
-          echo "full_image_tag=${FULL_IMAGE_TAG}" >> $GITHUB_OUTPUT
+          echo "ecr_image_tag=${ECR_IMAGE_TAG}" >> $GITHUB_OUTPUT
           echo "local_image_tag=${LOCAL_IMAGE_TAG}" >> $GITHUB_OUTPUT  
 
           # Echo the current version and image tag for debugging
           echo "Version: $VERSION"
           echo "Local Image Tag: $LOCAL_IMAGE_TAG"
-          echo "Full Image Tag: $FULL_IMAGE_TAG"
+          echo "Full Image Tag: $ECR_IMAGE_TAG"
 
   # Step 2: Setup Validation
   setup-validate:
@@ -75,17 +75,17 @@ jobs:
     # Sets up the environment variables for the workflow from output 
     env:
       VERSION: ${{ needs.setup.outputs.version }}
-      FULL_IMAGE_TAG: ${{ needs.setup.outputs.full_image_tag }}
+      ECR_IMAGE_TAG: ${{ needs.setup.outputs.ecr_image_tag }}
       LOCAL_IMAGE_TAG: ${{ needs.setup.outputs.local_image_tag }} 
     runs-on: ubuntu-latest
     steps:  
       # Step: Check if Variables Are Empty from output of setup job, fail if they are
       - name: Validate Output Variables
         run: |
-          if [[ -z "$VERSION" || -z "$FULL_IMAGE_TAG" || -z "$LOCAL_IMAGE_TAG" ]]; then
+          if [[ -z "$VERSION" || -z "$ECR_IMAGE_TAG" || -z "$LOCAL_IMAGE_TAG" ]]; then
             echo "❌ ERROR: Variable Validation did not succeed! One or more variables are empty."
             echo "VERSION: '$VERSION'"
-            echo "FULL_IMAGE_TAG: '$FULL_IMAGE_TAG'"
+            echo "ECR_IMAGE_TAG: '$ECR_IMAGE_TAG'"
             echo "LOCAL_IMAGE_TAG: '$LOCAL_IMAGE_TAG'"
             exit 1  # ❌ Fails the job
           else
@@ -170,7 +170,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       VERSION: ${{ needs.setup.outputs.version }}
-      FULL_IMAGE_TAG: ${{ needs.setup.outputs.full_image_tag }}
+      ECR_IMAGE_TAG: ${{ needs.setup.outputs.ecr_image_tag }}
       LOCAL_IMAGE_TAG: ${{ needs.setup.outputs.local_image_tag }}    
     steps:
       # Step 4.1: Checkout the repository
@@ -180,10 +180,10 @@ jobs:
       # Step 4.2: -DEBUG- Validate Setup Outputs
       - name: Validate Output Variables from Setup
         run: |
-          if [[ -z "$VERSION" || -z "$FULL_IMAGE_TAG" || -z "$LOCAL_IMAGE_TAG" ]]; then
+          if [[ -z "$VERSION" || -z "$ECR_IMAGE_TAG" || -z "$LOCAL_IMAGE_TAG" ]]; then
             echo "❌ ERROR: Variable Validation did not succeed! One or more variables are empty."
             echo "VERSION: '$VERSION'"
-            echo "FULL_IMAGE_TAG: '$FULL_IMAGE_TAG'"
+            echo "ECR_IMAGE_TAG: '$ECR_IMAGE_TAG'"
             echo "LOCAL_IMAGE_TAG: '$LOCAL_IMAGE_TAG'"
             exit 1  # ❌ Fails the job
           else
@@ -231,7 +231,7 @@ jobs:
           fi     
           
           echo "--- Tag Docker Container ---"
-          docker tag $LOCAL_IMAGE_TAG $FULL_IMAGE_TAG
+          docker tag $LOCAL_IMAGE_TAG $ECR_IMAGE_TAG
           
           echo "--- Validate specific container exists ---"
           # Check if the image exists using formart and grep to return a success/fail
@@ -276,11 +276,11 @@ jobs:
           echo "---Validating Image Tag---"
           echo "Version: $VERSION" 
           echo "Local Image Tag: $LOCAL_IMAGE_TAG"
-          echo "Full Image Tag: $FULL_IMAGE_TAG"
+          echo "Full Image Tag: $ECR_IMAGE_TAG"
           
           #push the image
           echo "---Pushing Image---"
-          docker push $FULL_IMAGE_TAG       
+          docker push $ECR_IMAGE_TAG       
 
       # Step 4.10: Push Docker Image to ECR
       - name: Cleanup Docker Images
