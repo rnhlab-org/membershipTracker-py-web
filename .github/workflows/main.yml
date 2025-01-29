@@ -25,20 +25,30 @@ jobs:
       full_image_tag: ${{ steps.extract.outputs.full_image_tag }}
       local_image_tag: ${{ steps.extract.outputs.local_image_tag }}
     steps:
+      # # Step 1: Run Actionlint on GitHub Actions workflows, 
+      # # in setup Catches workflow syntax errors early
+      - name: Run Actionlint on GitHub Actions workflows
+        uses: reviewdog/action-actionlint@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
       # Step 1: Extract Version and Set Image Tag
       - name: Extract Version and Set Image Tag
         id: extract
         run: |
           if [[ "${GITHUB_REF}" =~ ^refs/tags/v ]]; then
             VERSION=${GITHUB_REF#refs/tags/}
+            #formated for ECR without using the :latest tag use -${VERSION} instead
             FULL_IMAGE_TAG="798742520104.dkr.ecr.us-west-1.amazonaws.com/hlab-ecr-repo:membershiptracker-py-web-${VERSION}"
             LOCAL_IMAGE_TAG="membershiptracker-py-web:${VERSION}"
           elif [[ "${GITHUB_REF}" =~ ^refs/tags/stage ]]; then
             VERSION=${GITHUB_REF#refs/tags/}
+            #formated for ECR without using the :latest tag use -${VERSION} instead
             FULL_IMAGE_TAG="798742520104.dkr.ecr.us-west-1.amazonaws.com/hlab-ecr-repo:membershiptracker-py-web-dev-${VERSION}"
             LOCAL_IMAGE_TAG="membershiptracker-py-web-dev:${VERSION}"
           else
             VERSION=latest
+            #formated for ECR without using the :latest tag use -${VERSION} instead
             FULL_IMAGE_TAG="798742520104.dkr.ecr.us-west-1.amazonaws.com/hlab-ecr-repo:membershiptracker-py-web-dev-latest"
             LOCAL_IMAGE_TAG="membershiptracker-py-web-dev:latest"
           fi
@@ -52,24 +62,32 @@ jobs:
           echo "Version: $VERSION"
           echo "Local Image Tag: $LOCAL_IMAGE_TAG"
           echo "Full Image Tag: $FULL_IMAGE_TAG"
-  # Step 2: Setup  Validation 
+
+  # Step 2: Setup Validation
   setup-validate:
     name: Setup Output Variable Validation #
     needs: 
       - setup  # Ensure setup job completes successfully before running    
+    # Sets up the environment variables for the workflow from output 
     env:
       VERSION: ${{ needs.setup.outputs.version }}
       FULL_IMAGE_TAG: ${{ needs.setup.outputs.full_image_tag }}
       LOCAL_IMAGE_TAG: ${{ needs.setup.outputs.local_image_tag }} 
     runs-on: ubuntu-latest
-    # Step 2.1: -DEBUG- Validate Setup Outputs
     steps:  
-      - name: -DEBUG- Validate Setup Outputs
-        id: vardebug1
+      # Step: Check if Variables Are Empty from output of setup job, fail if they are
+      - name: Validate Output Variables
         run: |
-          echo "Version: $VERSION" # Log the extracted version
-          echo "Local Image Tag: $LOCAL_IMAGE_TAG"
-          echo "Full Image Tag: $FULL_IMAGE_TAG" 
+          if [[ -z "$VERSION" || -z "$FULL_IMAGE_TAG" || -z "$LOCAL_IMAGE_TAG" ]]; then
+            echo "❌ ERROR: Variable Validation did not succeed! One or more variables are empty."
+            echo "VERSION: '$VERSION'"
+            echo "FULL_IMAGE_TAG: '$FULL_IMAGE_TAG'"
+            echo "LOCAL_IMAGE_TAG: '$LOCAL_IMAGE_TAG'"
+            exit 1  # ❌ Fails the job
+          else
+            echo "✅ SUCCESS: All variables are set correctly."
+          fi
+
   # Step 3: Code checks      
   code-checks:
     name: Run Code Quality and Security Checks
@@ -91,8 +109,11 @@ jobs:
       # Step 3.3: Install dependencies
       - name: Install Python Dependencies
         run: |
-          pip install -r app/requirements.txt  # Install project dependencies
-          pip install bandit  # Install Bandit for security checks
+          pip install -r app/requirements.txt  ## Install project dependencies
+          pip install bandit  ## Install Bandit for security checks
+          npm install eslint stylelint htmlhint lighthouse --save-dev ## Install eslint, stylelint, htmlhint, and lighthouse for frontend checks used in this job
+          npm install stylelint-config-standard --save-dev  ## install stylelint-config-standard for stylelint
+              
 
       # Step 3.4: Run Bandit for security checks
       - name: Run Bandit Security Checks
@@ -104,9 +125,41 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}  # Use the SonarCloud token for authentication
 
+      # Step 3.6 Terraform Security Scanning with tfsec
+      - name: Run tfsec on Terraform Code
+        uses: aquasecurity/tfsec-action@v1.0.0
+
+      # Step 3.7 Helm Chart Security Scanning with kube-linter
+      - name: Run kube-linter on Helm Charts
+        uses: stackrox/kube-linter-action@v1
+        with:
+          directory: ./charts
+
+      # Step 3.8 JSON/YAML Security Scanning with Checkov
+      - name: Run Checkov on Config Files
+        uses: bridgecrewio/checkov-action@v12
+        with:
+          directory: .
+      
+      # Step 3.10: Run Local Checks on JavaScript, CSS Linting, HTML Linting, and Lighthouse
+      - name: Run Local Checks on JavaScript, CSS Linting, HTML Linting,  
+        run: |
+          echo "Running Local Checks on JavaScript, CSS Linting, HTML Linting, and Lighthouse"
+          echo "Running eslint on JavaScript files"
+          npx eslint . --ext .js,.jsx,.ts #check JavaScript files:
+          
+          echo "run stylelint on CSS files"  
+          npx stylelint "**/*.css"
+          
+          echo "run htmlhint on HTML files"
+          npx htmlhint "**/*.html"
+          
+          echo "run lighthouse on the web app"
+          lighthouse http://localhost:8080 --output html --output-path ./lighthouse_report.html --no-cache #Lighthouse results can be inconsistent due to caching
+
   # Step 4: Build and Validate Container
   build-validate-push:
-    name: Build, Validate, and Discard Container
+    name: Build, Validate, and Push
     needs: 
     - setup  # Ensure setup job completes successfully before running
     - code-checks  # Ensure code-checks job completes successfully before running
@@ -121,46 +174,82 @@ jobs:
         uses: actions/checkout@v3
 
       # Step 4.2: -DEBUG- Validate Setup Outputs
-      - name: -DEBUG- Validate Setup Outputs
+      - name: Validate Output Variables from Setup
         run: |
-          echo "Version: $VERSION" # Log the extracted version
-          echo "Local Image Tag: $LOCAL_IMAGE_TAG"
-          echo "Full Image Tag: $FULL_IMAGE_TAG" 
+          if [[ -z "$VERSION" || -z "$FULL_IMAGE_TAG" || -z "$LOCAL_IMAGE_TAG" ]]; then
+            echo "❌ ERROR: Variable Validation did not succeed! One or more variables are empty."
+            echo "VERSION: '$VERSION'"
+            echo "FULL_IMAGE_TAG: '$FULL_IMAGE_TAG'"
+            echo "LOCAL_IMAGE_TAG: '$LOCAL_IMAGE_TAG'"
+            exit 1  # ❌ Fails the job
+          else
+            echo "✅ SUCCESS: All variables are set correctly."
+          fi
 
         # Step 4.3: Manually update Chart appVersion as it does not do it automatically
       - name: Update Chart appVersion
         run: |
+          #check if the tag is already updated
           sed -i "s/^appVersion:.*/appVersion: ${VERSION}/" charts/membershipTracker-py-web/Chart.yaml
-          cat charts/membershipTracker-py-web/Chart.yaml  # Verify the change in logs
+          cat charts/membershipTracker-py-web/Chart.yaml  # Log for verification
+
+          # Validate modification and fail if not updated
+          if ! grep -q "^appVersion: ${VERSION}$" charts/membershipTracker-py-web/Chart.yaml; then
+            echo "❌ ERROR: appVersion update failed in Chart.yaml!"
+            exit 1
+          fi
 
         # Step 4.4: Update Image Tag in values.yaml
       - name: Update Image Tag in values.yaml
         run: |
+          # check if the tag is already updated
           sed -i "s/^  tag:.*/  tag: ${VERSION}/" charts/membershipTracker-py-web/values.yaml
-          cat charts/membershipTracker-py-web/values.yaml  # Verify the change in logs     
+          cat charts/membershipTracker-py-web/values.yaml  # Log for verification
 
-      # Step 4.5: Build Docker Container
-      - name: Build Container
+          # Validate modification and fail if not updated
+          if ! grep -q "^  tag: ${VERSION}$" charts/membershipTracker-py-web/values.yaml; then
+            echo "❌ ERROR: Image tag update failed in values.yaml!"
+            exit 1
+          fi       
+
+      # Step 4.5: Build Docker Container and validate 
+      - name: Build Container and validate locally
         run: |
+          echo "--- Build Docker Container ---"
           docker build --build-arg APP_VERSION=$VERSION -t $LOCAL_IMAGE_TAG .  # Build the Docker image with the extracted version
-          docker tag $LOCAL_IMAGE_TAG $FULL_IMAGE_TAG
 
-      # Step 4.6 Debugging: Verify Docker Image Creation
-      - name: -DEBUG- Verify Docker Image Creation
-        run: |
+          # Check if the image exists using formart and grep to return a success/fail
+          if ! docker images --format "{{.Repository}}:{{.Tag}}" | grep -q "^$LOCAL_IMAGE_TAG$"; then
+          echo "❌ ERROR: Image $LOCAL_IMAGE_TAG does not exist, check build!"
+          exit 1
+          else
+            echo "✅ SUCCESS: Image $LOCAL_IMAGE_TAG exists!"
+          fi     
+          
+          echo "--- Tag Docker Container ---"
+          docker tag $LOCAL_IMAGE_TAG $FULL_IMAGE_TAG
+          
           echo "--- Validate specific container exists ---"
-          docker images $LOCAL_IMAGE_TAG
-          echo "--- Validate all containers ---"
-          docker images  
-    
-      # Step 4.7: Validate Container Locally
+          # Check if the image exists using formart and grep to return a success/fail
+          echo "Checking if the image exists locally running docker images"
+          docker images --format "{{.Repository}}:{{.Tag}}"
+          
+
+         
+      # Step 4.7: Validate Container Locally by checking for a successful web page load
       - name: Validate Container
         run: |
+          # build temp container to validate
+          echo "Running temp container to validate"
           docker run -d --name temp-container -p 8080:8000 $LOCAL_IMAGE_TAG  # Run the container locally
           sleep 5  # Wait for the container to start
+          
+          # Check if the web page loads successfully (-f silent faile if does not load, || to run next command if failed, runs docker logs and exits with 1)
           curl -f http://localhost:8080 || (docker logs temp-container && exit 1)  # Check if the web page loads successfully
+          
+          #destroy the temp container
           docker stop temp-container && docker rm temp-container  # Stop and remove the container after validation
-      
+
      # Step 4.8: Log in to Amazon ECR
       - name: Log in to Amazon ECR
         if: github.event_name == 'push' && (startsWith(github.ref, 'refs/tags/stage') || startsWith(github.ref, 'refs/tags/v'))
@@ -173,17 +262,27 @@ jobs:
 
       # Step 4.9: Push Docker Image to ECR
       - name: Push Docker Image
+        #pushes the image to ECR only if the event is a push and the tag is a stage or version tag
         if: github.event_name == 'push' && (startsWith(github.ref, 'refs/tags/stage') || startsWith(github.ref, 'refs/tags/v'))
         id: imagepush
         run: |
+          echo "Pushing Docker Image to ECR"
+          
+          #validate the image tags
+          echo "---Validating Image Tag---"
           echo "Version: $VERSION" 
           echo "Local Image Tag: $LOCAL_IMAGE_TAG"
           echo "Full Image Tag: $FULL_IMAGE_TAG"
+          
+          #push the image
+          echo "---Pushing Image---"
           docker push $FULL_IMAGE_TAG       
 
       # Step 4.10: Push Docker Image to ECR
       - name: Cleanup Docker Images
         if: success()
         run: |
-          docker image prune -f           
+          echo "Cleanup Docker Images"
+          # Ensures older unused images are cleaned, but doesn't remove images used in parallel builds.
+          docker image prune -f --filter "until=24h"           
 
