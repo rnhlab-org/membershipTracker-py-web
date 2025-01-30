@@ -15,13 +15,13 @@ spec:
     metadata:
       labels:
         app: {{ .Chart.Name }}
+
     spec:
-      securityContext:
-        runAsUser: 1000
-        runAsGroup: 1000
-        fsGroup: 1000
-        runAsNonRoot: true
-    spec:
+      securityContext: # Add a security context to the pod -Pod-Level Security Context is applied correctly ##Checkov fix
+        runAsUser: 10001    # Ensures that the container does not run as root
+        runAsGroup: 10001  # Group for shared file system access
+        fsGroup: 10001  # Applies file system permissions at pod level
+        runAsNonRoot: true  # Enforces that the container does not run as root      
       automountServiceAccountToken: false ## Added to disable automounting of service account token per SonarCloud recommendation
       terminationGracePeriodSeconds: 30 #  Ensures safe pod shutdown
       containers:
@@ -29,17 +29,13 @@ spec:
         image: "{{ .Values.image.repository }}@{{ .Values.image.digest }}" # Use image digest instead of tag ##Checkov fix
         #image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}" ##Checkov fix
         imagePullPolicy: {{ .Values.image.pullPolicy }} #  Always pull the image ##Checkov fix
-        securityContext:
+        securityContext: # Add a security context to the container -Container-Level Security Context is applied correctly ##Checkov fix
           seccompProfile:              # Add a security context with seccompProfile ##Checkov fix
             type: RuntimeDefault     # Add a security context with seccompProfile  ##Checkov fix 
           capabilities:  ##Checkov fix
             drop:                     # Drop all capabilities and add only the necessary ones ##Checkov fix
               - ALL ##Checkov fix
           readOnlyRootFilesystem: true # Prevents write access to the root filesystem
-          runAsGroup: 1000 # Use a non-root group
-          runAsUser: 1000 # Use a non-root user
-          fsGroup: 1000 # Use a non-root group
-          runAsNonRoot: true # Prevents running as root
           allowPrivilegeEscalation: false # Prevents security vulnerabilities
         ports:
         - containerPort: 8000
