@@ -127,7 +127,7 @@ jobs:
       # Step 3.5: Run SonarCloud Analysis
       - name: Run SonarCloud Scan
         uses: sonarsource/sonarcloud-github-action@v2
-        continue-on-error: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/stage' && 'true' || 'false' }}  # Allow failure if not on main or stage
+        continue-on-error: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/stage' }}
         #continue-on-error: true  # Continue on error to prevent failing the workflow
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }} 
@@ -137,6 +137,9 @@ jobs:
             -Dsonar.projectKey=rnhlab-org_membershipTracker-py-web
             -Dsonar.sources=.
             -Dsonar.host.url=https://sonarcloud.io
+            -Dsonar.c.file.suffixes=-
+            -Dsonar.cpp.file.suffixes=-
+            -Dsonar.objc.file.suffixes=-
 
       # Step 3.6 Terraform Security Scanning with tfsec
       - name: Run tfsec on Terraform Code
