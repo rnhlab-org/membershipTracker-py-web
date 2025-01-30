@@ -121,19 +121,20 @@ jobs:
 
       # Step 3.4: Run Bandit for security checks
       - name: Run Bandit Security Checks
-        #continue-on-error: true
+        #continue-on-error: true  # Continue on error to prevent failing the workflow
         run: bandit -r app/  # Recursively scan the app directory for vulnerabilities
 
       # Step 3.5: Run SonarCloud Analysis
       - name: Run SonarCloud Scan
         uses: sonarsource/sonarcloud-github-action@v2
+        continue-on-error: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/stage' && 'true' || 'false' }}  # Allow failure if not on main or stage
         #continue-on-error: true  # Continue on error to prevent failing the workflow
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }} 
         with:
           args: >
-            -Dsonar.organization=YOUR_ORG_NAME
-            -Dsonar.projectKey=YOUR_PROJECT_KEY
+            -Dsonar.organization=rnhlab-org
+            -Dsonar.projectKey=rnhlab-org_membershipTracker-py-web
             -Dsonar.sources=.
             -Dsonar.host.url=https://sonarcloud.io
 
