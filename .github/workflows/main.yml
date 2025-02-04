@@ -272,7 +272,7 @@ jobs:
           # Check if the web page loads successfully (-f silent faile if does not load, || to run next command if failed, runs docker logs and exits with 1)
           curl -f http://localhost:8080 || (docker logs temp-container && exit 1)  # Check if the web page loads successfully
           # # # temp add 
-          lighthouse http://localhost:8080 --output html --output-path ./lighthouse_report.html --no-cache # || true  # Run Lighthouse
+          # lighthouse http://localhost:8080 --output html --output-path ./lighthouse_report.html --no-cache # || true  # Run Lighthouse
           #destroy the temp container
           docker stop temp-container && docker rm temp-container  # Stop and remove the container after validation
 
