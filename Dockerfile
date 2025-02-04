@@ -10,6 +10,12 @@ RUN groupadd -r appuser && useradd -r -g appuser appuser
 # Set the working directory in the container  ##Checkov fix
 WORKDIR /app
 
+# Copy the Python dependencies file into the container
+COPY app/requirements.txt .
+
+# Install the Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
 # Change ownership ##Checkov fix
 COPY app/ ./
 RUN chown -R appuser:appuser /app
@@ -26,12 +32,6 @@ ENV APP_VERSION=${APP_VERSION}
 # Add metadata to the container image for version tracking
 LABEL version=${APP_VERSION}
 LABEL description="Membership Tracker Frontend Service"
-
-# Copy the Python dependencies file into the container
-COPY app/requirements.txt .
-
-# Install the Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the application code into the container
 COPY app/ .
