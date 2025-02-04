@@ -16,6 +16,14 @@ on:
       - stage  # Trigger on pull requests to stage branch
       - main   # Trigger on pull requests to main branch
 
+# #  adding explicit permissions under permissions: at the top level.     
+permissions:
+  contents: read   # Allow reading repo contents (needed for checkout)
+  id-token: write  # Required for OIDC-based authentication (e.g., AWS ECR login)
+  packages: write  # Required for pushing Docker images to a registry
+  actions: read    # Allow reading actions within this workflow
+  pull-requests: write  # Allow commenting on PRs (if applicable)
+
 jobs:
   # Step 0: Setup
   setup:
