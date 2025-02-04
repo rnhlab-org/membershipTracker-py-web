@@ -315,31 +315,48 @@ jobs:
           docker image prune -f --filter "dangling=true"     
 
 
-      # # Step 4.11: Retrieve Image Digest from AWS ECR  
-      - name: Retrieve Image Digest from AWS ECR # Retrieve the image digest from AWS ECR
+     # # Step 4.11: Retrieve Image Digest from AWS ECR  
+      - name: Retrieve Image Digest from AWS ECR
         if: github.event_name == 'push' && (startsWith(github.ref, 'refs/tags/stage') || startsWith(github.ref, 'refs/tags/v'))
         id: get-digest
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-west-1
+          VERSION: ${{ needs.setup.outputs.version }}  # Ensure VERSION is available
         run: |
-          # # Retrieve the image digest from AWS ECR
-          DIGEST=$(aws ecr describe-images --region us-west-1 --repository-name hlab-ecr-repo \
-            --query "imageDetails[?imageTags[0]=='$VERSION'].imageDigest" --output text)
-          echo "DIGEST=$DIGEST" >> $GITHUB_ENV      # Set the DIGEST as an environment variable for later use
-          DIGEST=$(aws ecr describe-images --region us-west-1 --repository-name hlab-ecr-repo \
-            --query "imageDetails[?imageTags[0]=='$VERSION'].imageDigest" --output text)
+          echo "🔍 Retrieving image digest for version: $VERSION"
           
-          # # Validate the DIGEST and fail if not retrieved
-          if [[ -z "$DIGEST" ]]; then
+          # Retrieve the image digest from AWS ECR
+          DIGEST=$(aws ecr describe-images --region us-west-1 --repository-name hlab-ecr-repo \
+            --query "imageDetails[?imageTags[0]=='$VERSION'].imageDigest" --output text | tr -d '[:space:]')
+      
+          # Validate the DIGEST and fail if not retrieved
+          if [[ -z "$DIGEST" || "$DIGEST" == "None" ]]; then
             echo "❌ ERROR: Could not retrieve digest from AWS ECR!"
             exit 1
           fi
-
+      
           echo "✅ SUCCESS: Image Digest Retrieved -> $DIGEST"
-          echo "DIGEST=$DIGEST" >> $GITHUB_ENV
-
-
-      # # Step 4.12: Update Helm values.yaml with Digest
+          echo "DIGEST=$DIGEST" >> $GITHUB_ENV  # Store DIGEST as an environment variable for later steps          
+   # # Step 4.12: Update Helm values.yaml with Digest
       - name: Update Helm values.yaml with Digest
         if: github.event_name == 'push' && (startsWith(github.ref, 'refs/tags/stage') || startsWith(github.ref, 'refs/tags/v'))
+        env:
+          DIGEST: ${{ env.DIGEST }}  # Ensure DIGEST is available in this step
         run: |
-          sed -i "s|digest:.*|digest: \"$DIGEST\"|" charts/membershipTracker-py-web/values.yaml    ## Update the digest in the Helm values.yaml
-
+          if [[ -z "$DIGEST" || "$DIGEST" == "None" ]]; then
+            echo "❌ ERROR: No valid DIGEST found! Cannot update values.yaml."
+            exit 1
+          fi
+          
+          echo "🔄 Updating Helm values.yaml with digest: $DIGEST"
+          sed -i "s|digest:.*|digest: \"$DIGEST\"|" charts/membershipTracker-py-web/values.yaml
+      
+          # Validate the update
+          if ! grep -q "digest: \"$DIGEST\"" charts/membershipTracker-py-web/values.yaml; then
+            echo "❌ ERROR: Digest update failed in values.yaml!"
+            exit 1
+          fi
+      
+          echo "✅ SUCCESS: Helm values.yaml updated with digest!"
