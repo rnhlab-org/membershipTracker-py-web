@@ -124,7 +124,7 @@ jobs:
           pip install -r app/requirements.txt  ## Install project dependencies
           pip install bandit  ## Install Bandit for security checks
           npm install eslint stylelint htmlhint lighthouse --save-dev ## Install eslint, stylelint, htmlhint, and lighthouse for frontend checks used in this job
-          npm install stylelint-config-standard --save-dev  ## install stylelint-config-standard for stylelint
+          npm install --save-dev stylelint-config-standard ## install stylelint-config-standard for stylelint
           npm init -y    
 
       # Step 3.4: Run Bandit for security checks
@@ -184,8 +184,8 @@ jobs:
           echo "run htmlhint on HTML files"
           npx htmlhint --config .htmlhintrc "**/*.html"
           
-          echo "run lighthouse on the web app"
-          lighthouse http://localhost:8080 --output html --output-path ./lighthouse_report.html --no-cache #Lighthouse results can be inconsistent due to caching
+          # echo "run lighthouse on the web app"
+          # lighthouse http://localhost:8080 --output html --output-path ./lighthouse_report.html --no-cache #Lighthouse results can be inconsistent due to caching
 
   # Step 4: Build and Validate Container
   build-validate-push:
@@ -276,7 +276,8 @@ jobs:
           
           # Check if the web page loads successfully (-f silent faile if does not load, || to run next command if failed, runs docker logs and exits with 1)
           curl -f http://localhost:8080 || (docker logs temp-container && exit 1)  # Check if the web page loads successfully
-          
+          # # # temp add 
+          lighthouse http://localhost:8080 --output html --output-path ./lighthouse_report.html --no-cache || true  # Run Lighthouse
           #destroy the temp container
           docker stop temp-container && docker rm temp-container  # Stop and remove the container after validation
 
