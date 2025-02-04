@@ -327,18 +327,22 @@ jobs:
         run: |
           echo "🔍 Retrieving image digest for version: $VERSION"
           
+          # Debugging: Print all image tags
+          echo "🔍 Checking all image tags in the repository..."
+          aws ecr describe-images --region us-west-1 --repository-name hlab-ecr-repo --query "imageDetails[*].imageTags" --output json
+          
           # Retrieve the image digest from AWS ECR
           DIGEST=$(aws ecr describe-images --region us-west-1 --repository-name hlab-ecr-repo \
-            --query "imageDetails[?imageTags[0]=='$VERSION'].imageDigest" --output text | tr -d '[:space:]')
+            --query "imageDetails[?contains(imageTags, '$VERSION')].imageDigest" --output text | tr -d '[:space:]')
       
           # Validate the DIGEST and fail if not retrieved
           if [[ -z "$DIGEST" || "$DIGEST" == "None" ]]; then
-            echo "❌ ERROR: Could not retrieve digest from AWS ECR!"
+            echo "❌ ERROR: Could not retrieve digest from AWS ECR! Verify the image exists."
             exit 1
           fi
       
           echo "✅ SUCCESS: Image Digest Retrieved -> $DIGEST"
-          echo "DIGEST=$DIGEST" >> $GITHUB_ENV  # Store DIGEST as an environment variable for later steps          
+          echo "DIGEST=$DIGEST" >> $GITHUB_ENV        
    # # Step 4.12: Update Helm values.yaml with Digest
       - name: Update Helm values.yaml with Digest
         if: github.event_name == 'push' && (startsWith(github.ref, 'refs/tags/stage') || startsWith(github.ref, 'refs/tags/v'))
