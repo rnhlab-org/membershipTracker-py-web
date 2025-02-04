@@ -125,7 +125,7 @@ jobs:
           pip install bandit  ## Install Bandit for security checks
           npm install eslint stylelint htmlhint lighthouse --save-dev ## Install eslint, stylelint, htmlhint, and lighthouse for frontend checks used in this job
           npm install stylelint-config-standard --save-dev  ## install stylelint-config-standard for stylelint
-              
+          npm init -y    
 
       # Step 3.4: Run Bandit for security checks
       - name: Run Bandit Security Checks
@@ -176,11 +176,13 @@ jobs:
           #echo "Running eslint on JavaScript files" ## Not needed for this project
           #npx eslint .  #check JavaScript files: ## Not needed for this project
           
+          # # Run stylelink for css files, requires a .stylelintrc.json
           echo "run stylelint on CSS files"  
-          npx stylelint "**/*.css"
+          npx stylelint --config .stylelintrc.json "**/*.css"
           
+          # #  Run htmlhint for HTML files, requires a .htmlhintrc
           echo "run htmlhint on HTML files"
-          npx htmlhint "**/*.html"
+          npx htmlhint --config .htmlhintrc "**/*.html"
           
           echo "run lighthouse on the web app"
           lighthouse http://localhost:8080 --output html --output-path ./lighthouse_report.html --no-cache #Lighthouse results can be inconsistent due to caching
