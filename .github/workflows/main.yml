@@ -272,19 +272,21 @@ jobs:
           # Check if the web page loads successfully (-f silent faile if does not load, || to run next command if failed, runs docker logs and exits with 1)
           curl -f http://localhost:8080 || (docker logs temp-container && exit 1)  # Check if the web page loads successfully
           # # # temp add 
-          lighthouse http://localhost:8080 --output html --output-path ./lighthouse_report.html --no-cache || true  # Run Lighthouse
+          lighthouse http://localhost:8080 --output html --output-path ./lighthouse_report.html --no-cache # || true  # Run Lighthouse
           #destroy the temp container
           docker stop temp-container && docker rm temp-container  # Stop and remove the container after validation
 
-     # Step 4.8: Log in to Amazon ECR
+     # Step 4.8: Log in to Amazon ECR for push and getting the image digest
       - name: Log in to Amazon ECR
         if: github.event_name == 'push' && (startsWith(github.ref, 'refs/tags/stage') || startsWith(github.ref, 'refs/tags/v'))
         id: loginecr
-        run: |
-          aws ecr get-login-password --region us-west-1 | docker login --username AWS --password-stdin 798742520104.dkr.ecr.us-west-1.amazonaws.com
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}  # AWS access key
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}  # AWS secret key
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-west-1
+        run: |
+          echo "Logging in to Amazon ECR"
+          aws ecr get-login-password --region us-west-1 | docker login --username AWS --password-stdin 798742520104.dkr.ecr.us-west-1.amazonaws.com
 
       # Step 4.9: Push Docker Image to ECR
       - name: Push Docker Image
@@ -310,16 +312,31 @@ jobs:
         run: |
           echo "Cleanup Docker Images"
           # Ensures older unused images are cleaned, but doesn't remove images used in parallel builds.
-          docker image prune -f --filter "until=24h"     
-          
+          docker image prune -f --filter "dangling=true"     
+
+
       # # Step 4.11: Retrieve Image Digest from AWS ECR  
       - name: Retrieve Image Digest from AWS ECR # Retrieve the image digest from AWS ECR
         if: github.event_name == 'push' && (startsWith(github.ref, 'refs/tags/stage') || startsWith(github.ref, 'refs/tags/v'))
         id: get-digest
         run: |
+          # # Retrieve the image digest from AWS ECR
           DIGEST=$(aws ecr describe-images --region us-west-1 --repository-name hlab-ecr-repo \
             --query "imageDetails[?imageTags[0]=='$VERSION'].imageDigest" --output text)
           echo "DIGEST=$DIGEST" >> $GITHUB_ENV      # Set the DIGEST as an environment variable for later use
+          DIGEST=$(aws ecr describe-images --region us-west-1 --repository-name hlab-ecr-repo \
+            --query "imageDetails[?imageTags[0]=='$VERSION'].imageDigest" --output text)
+          
+          # # Validate the DIGEST and fail if not retrieved
+          if [[ -z "$DIGEST" ]]; then
+            echo "❌ ERROR: Could not retrieve digest from AWS ECR!"
+            exit 1
+          fi
+
+          echo "✅ SUCCESS: Image Digest Retrieved -> $DIGEST"
+          echo "DIGEST=$DIGEST" >> $GITHUB_ENV
+
+
       # # Step 4.12: Update Helm values.yaml with Digest
       - name: Update Helm values.yaml with Digest
         if: github.event_name == 'push' && (startsWith(github.ref, 'refs/tags/stage') || startsWith(github.ref, 'refs/tags/v'))
