@@ -6,7 +6,8 @@ image:
   repository: 798742520104.dkr.ecr.us-west-1.amazonaws.com/hlab-ecr-repo
   pullPolicy: Always
   digest: "sha256:dummydigest0000000000000000000000000000000000000000000000000000000000" #  Replace with digest dynamically fetched ##Checkov fix
-  # tag: "devbld"
+  # # renvoed tag as we are using digest
+  #tag: "devbld"
 
 service:
   type: ClusterIP

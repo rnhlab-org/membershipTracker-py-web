@@ -124,8 +124,8 @@ jobs:
           pip install -r app/requirements.txt  ## Install project dependencies
           pip install bandit  ## Install Bandit for security checks
           npm install eslint stylelint htmlhint lighthouse --save-dev ## Install eslint, stylelint, htmlhint, and lighthouse for frontend checks used in this job
-          # npm install --save-dev stylelint-config-standard ## install stylelint-config-standard for stylelint
-          # npm init -y    
+          npm install --save-dev stylelint-config-standard ## install stylelint-config-standard for stylelint
+          npm init -y    
 
       # Step 3.4: Run Bandit for security checks
       - name: Run Bandit Security Checks
@@ -177,8 +177,8 @@ jobs:
           #npx eslint .  #check JavaScript files: ## Not needed for this project
           
           # # Run stylelink for css files, requires a .stylelintrc.json
-          # echo "run stylelint on CSS files"  
-          # npx stylelint --config .stylelintrc.json "**/*.css"
+          echo "run stylelint on CSS files"  
+          npx stylelint --config .stylelintrc.json "**/*.css"
           
           # #  Run htmlhint for HTML files, requires a .htmlhintrc
           echo "run htmlhint on HTML files"
@@ -229,18 +229,19 @@ jobs:
             exit 1
           fi
 
-        # Step 4.4: Update Image Tag in values.yaml
-      - name: Update Image Tag in values.yaml
-        run: |
-          # check if the tag is already updated
-          sed -i "s/^  tag:.*/  tag: ${VERSION}/" charts/membershipTracker-py-web/values.yaml
-          cat charts/membershipTracker-py-web/values.yaml  # Log for verification
+        ## removed as the image tag is not updated in the values.yaml because the digest is used instead
+          # Step 4.4: Update Image Tag in values.yaml
+      # - name: Update Image Tag in values.yaml
+      #   run: |
+      #     # check if the tag is already updated
+      #     sed -i "s/^  tag:.*/  tag: ${VERSION}/" charts/membershipTracker-py-web/values.yaml
+      #     cat charts/membershipTracker-py-web/values.yaml  # Log for verification
 
-          # Validate modification and fail if not updated
-          if ! grep -q "^  tag: ${VERSION}$" charts/membershipTracker-py-web/values.yaml; then
-            echo "❌ ERROR: Image tag update failed in values.yaml!"
-            exit 1
-          fi       
+      #     # Validate modification and fail if not updated
+      #     if ! grep -q "^  tag: ${VERSION}$" charts/membershipTracker-py-web/values.yaml; then
+      #       echo "❌ ERROR: Image tag update failed in values.yaml!"
+      #       exit 1
+      #     fi       
 
       # Step 4.5: Build Docker Container and validate 
       - name: Build Container and validate locally
